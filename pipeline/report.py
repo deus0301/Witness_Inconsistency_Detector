@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pipeline.findings import render_findings_markdown
+
 
 def _quote(text: str) -> str:
     return text.replace("\n", " ").replace("|", "\\|")
@@ -27,6 +29,10 @@ def render_markdown(report: dict[str, Any], max_clusters: int = 50) -> str:
         f"Settings: embeddings `{cfg['embedding_model']}`, clustering `{cfg['clustering_algorithm']}`, "
         f"NLI `{cfg['nli_model']}`, contradiction threshold {cfg['contradiction_threshold']}.",
         "",
+    ]
+    if report.get("findings"):
+        lines += render_findings_markdown(report["findings"])
+    lines += [
         "## Flagged clusters",
         "",
     ]

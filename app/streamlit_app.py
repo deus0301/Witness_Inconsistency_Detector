@@ -95,6 +95,37 @@ if st.button("Detect disagreement", type="primary", disabled=len(claims) < 2):
     cols[2].metric("Pairs scored", s["n_pairs_scored"])
     cols[3].metric("Pairs if all compared", s["n_pairs_all_pairs"])
 
+    findings = report["findings"]
+    st.subheader("Findings summary")
+    st.caption("Built only from the statements. \"Agree\" means the accounts say the same thing, "
+               "not that it is true.")
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**What the accounts agree on**")
+        if not findings["corroborated"]:
+            st.write("No undisputed statement was restated by a second account.")
+        for e in findings["corroborated"][:15]:
+            st.markdown(f"- \"{e['statement']}\" ({e['n_accounts_stating']} accounts: "
+                        f"{', '.join([e['stated_by']] + e['restated_by'][:4])})")
+        st.markdown("**Said by one account only**")
+        if not findings["single_source"]:
+            st.write("None.")
+        for e in findings["single_source"][:15]:
+            st.markdown(f"- {e['account_id']}: \"{e['text']}\"")
+    with right:
+        st.markdown("**Where the accounts conflict**")
+        if not findings["disputed"]:
+            st.write("No conflict reached the threshold.")
+        for e in findings["disputed"][:15]:
+            st.markdown(f"- **{e['topic']}** ({e['n_contradicting_pairs']} conflicting pairs)")
+            if e["example"]:
+                a, b = e["example"]["side_a"], e["example"]["side_b"]
+                st.markdown(f"    - {a['account_id']}: \"{a['text']}\"\n"
+                            f"    - {b['account_id']}: \"{b['text']}\"")
+    with st.expander("What this summary cannot tell you"):
+        for caveat in findings["caveats"]:
+            st.markdown(f"- {caveat}")
+
     st.subheader("Clusters with internal disagreement")
     flagged = [c for c in report["clusters"] if c["flagged"]]
     if not flagged:

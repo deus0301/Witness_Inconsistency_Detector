@@ -28,6 +28,7 @@ from data.schema import Claim
 from nli_scoring.scorer import BaseScorer, build_scorer
 from pipeline.config import fix_console_encoding, load_config, resolve_path, set_seed
 from pipeline.disagreement import cluster_pairs, disagreement_stats
+from pipeline.findings import build_findings
 from pipeline.report import render_markdown
 
 
@@ -215,6 +216,7 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
             "n_pairs_all_pairs": len(claims) * (len(claims) - 1) // 2,
             "n_flagged_clusters": sum(c["flagged"] for c in clusters_out),
         },
+        "findings": build_findings(claims, labels, clusters_out, pairs, probs, scorer, cfg),
         "clusters": clusters_out,
     }
     return PipelineResult(claims, emb, labels, pairs, probs, report)

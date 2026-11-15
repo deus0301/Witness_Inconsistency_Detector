@@ -157,3 +157,30 @@ def test_config_loading_and_model_resolution(tmp_path):
     local.mkdir()
     (local / "config.json").write_text("{}", encoding="utf-8")
     assert resolve_model("org/some-model", cfg) == str(local)
+
+
+def test_findings_summary(cfg, toy_claims):
+    cfg["clustering"]["algorithm"] = "agglomerative"
+    cfg["clustering"]["agglomerative"]["distance_threshold"] = 0.7
+    cfg["disagreement"]["contradiction_threshold"] = 0.8
+    extra = toy_claims + [make_claim(99, "A completely unrelated remark about bananas and weather")]
+    result = run_pipeline(extra, cfg, embedder=MockEmbedder(), scorer=MockNLIScorer(), verbose=False)
+    findings = result.report["findings"]
+    counts = findings["counts"]
+    assert set(findings) >= {"corroborated", "disputed", "single_source", "caveats"}
+    assert counts["disputed"] == result.report["summary"]["n_flagged_clusters"] >= 1
+    assert all(counts[k] == len(findings[k]) for k in ("corroborated", "disputed", "single_source"))
+    assert any("bananas" in e["text"] for e in findings["single_source"])
+    contested_texts = {p[side]["text"] for c in result.report["clusters"]
+                       for p in c["contradicting_pairs"] for side in ("claim_a", "claim_b")}
+    for entry in findings["corroborated"]:
+        assert entry["restated_by"] and entry["stated_by"] not in entry["restated_by"]
+        assert entry["statement"] not in contested_texts  # never report a disputed claim as agreed
+    assert not contested_texts & {e["text"] for e in findings["single_source"]}
+    for entry in findings["disputed"]:
+        assert entry["example"]["side_a"]["account_id"] != entry["example"]["side_b"]["account_id"]
+    hockey = [e for e in findings["corroborated"] if "hockey" in e["statement"].lower()]
+    assert hockey and hockey[0]["n_accounts_stating"] >= 2
+    text = render_markdown(result.report)
+    assert "## Findings summary" in text and "What this summary cannot tell you" in text
+    assert "is true" not in text.replace("not that it is true", "")
