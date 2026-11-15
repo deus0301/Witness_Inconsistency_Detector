@@ -1,0 +1,14 @@
+# data and model weights never go into version control
+data/raw/
+models/
+*.zip
+*.tar.bz2
+
+# environments, caches, generated artefacts
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+outputs/
+.hf_cache/

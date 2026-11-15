@@ -1,0 +1,65 @@
+# Cross-Account Inconsistency Detector - default (full) configuration.
+# Every model name, path and threshold lives here; nothing is hardcoded in the code.
+seed: 42
+device: auto                  # auto (GPU if available) | cpu
+
+paths:
+  pheme_v2: data/raw/pheme_v2/all-rnr-annotated-threads   # 9 events, veracity annotations
+  pheme_v1: data/raw/pheme_v1/pheme-rnr-dataset            # 5 events, fallback (no veracity)
+  multinli: data/raw/multinli_1.0/multinli_1.0
+  models_dir: models          # optional local snapshots: models/<name with / replaced by __>
+  cache_dir: outputs/cache    # embedding + NLI score caches
+  output_dir: outputs
+  figures_dir: reports/figures
+
+events:
+  main: [ottawashooting, sydneysiege, charliehebdo, germanwings-crash]
+  extra: [ferguson]
+
+data:
+  include_replies: false      # main experiments use source tweets (one account = one report)
+  languages: [en]             # tweets whose Twitter `lang` is not listed are dropped; [] keeps all
+  min_tokens: 4               # drop cleaned tweets shorter than this
+  dedup: true                 # drop exact duplicates of the normalised text (keep earliest)
+  max_claims_per_event: null  # null = no cap
+
+models:
+  nli: cross-encoder/nli-deberta-v3-base
+  nli_comparison: roberta-large-mnli            # optional; skipped unless --compare-nli
+  embedding: sentence-transformers/all-MiniLM-L6-v2
+  embedding_comparison: sentence-transformers/all-mpnet-base-v2
+  embedding_multilingual: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  mock: false                 # true = deterministic mock models (tests / offline)
+
+nli:
+  batch_size: 64
+  max_length: 128
+  aggregation: min_contradiction   # combine the two directions: max_contradiction | min_contradiction | mean
+  fp16: true                       # only used on GPU
+
+clustering:
+  algorithm: hdbscan               # hdbscan | kmeans | agglomerative | graph
+  hdbscan: {min_cluster_size: 3, min_samples: 2, umap_dim: 10}
+  kmeans: {k_min: 5, k_max: 60, k_step: 5}
+  agglomerative: {distance_threshold: 0.45, linkage: average}
+  graph: {knn: 10, min_similarity: 0.55, resolution: 1.0}
+  noise_strategy: nearest          # nearest | keep  (what to do with unclustered points)
+  noise_assign_min_sim: 0.6        # 'nearest' only attaches a noise point above this cosine sim
+  min_cluster_size_for_pairs: 2
+  label_top_terms: 5
+
+disagreement:
+  contradiction_threshold: 0.9     # a pair "contradicts" at or above this probability
+  min_contradicting_pairs: 1       # cluster is flagged with at least this many such pairs
+  score_weight_fraction: 0.5       # score = w*fraction_contradicting + (1-w)*max_contradiction
+  max_pairs_per_cluster: 400       # seeded random sample above this, to bound NLI cost
+  cross_account_only: true         # never compare an account with itself
+  top_pairs_in_report: 10
+
+evaluation:
+  mnli_max_examples: null          # null = full validation sets
+  proxy_pairs_per_class: 400
+  threshold_grid: [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99]
+  aggregations: [max_contradiction, mean, min_contradiction]   # ablation on the default config
+  allpairs_max_claims: 350         # all-pairs baseline is run on at most this many claims/event
+  error_examples: 20

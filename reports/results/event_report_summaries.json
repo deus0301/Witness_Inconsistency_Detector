@@ -1,0 +1,38 @@
+{
+  "ottawashooting": {
+    "n_claims": 871,
+    "n_accounts": 434,
+    "n_clusters": 82,
+    "n_unclustered_claims": 17,
+    "n_pairs_scored": 4592,
+    "n_pairs_all_pairs": 378885,
+    "n_flagged_clusters": 48
+  },
+  "sydneysiege": {
+    "n_claims": 1182,
+    "n_accounts": 565,
+    "n_clusters": 121,
+    "n_unclustered_claims": 24,
+    "n_pairs_scored": 7591,
+    "n_pairs_all_pairs": 697971,
+    "n_flagged_clusters": 72
+  },
+  "charliehebdo": {
+    "n_claims": 2010,
+    "n_accounts": 1021,
+    "n_clusters": 223,
+    "n_unclustered_claims": 62,
+    "n_pairs_scored": 10100,
+    "n_pairs_all_pairs": 2019045,
+    "n_flagged_clusters": 141
+  },
+  "germanwings-crash": {
+    "n_claims": 461,
+    "n_accounts": 228,
+    "n_clusters": 47,
+    "n_unclustered_claims": 8,
+    "n_pairs_scored": 2573,
+    "n_pairs_all_pairs": 106030,
+    "n_flagged_clusters": 22
+  }
+}
