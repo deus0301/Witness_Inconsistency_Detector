@@ -2,33 +2,39 @@
 
 **UML501 Machine Learning, group project.** Yash Aggarwal (data), Divit Malhotra (NLI scoring), Apoorv (clustering and integration).
 
-All numbers in this report are read from `reports/results/*.json`, written by `python run_all.py`
-on an RTX 4050 laptop GPU. Nothing is estimated or typed in from memory. Where a step was not run,
-the report says so.
+All numbers in this report come from `reports/results/*.json`, written by `python run_all.py` on an
+RTX 4050 laptop GPU. The tables are copied from [`RESULTS_TABLES.md`](RESULTS_TABLES.md), which is
+generated from those files by `python -m evaluation.make_tables`. Where a step was not run, the
+report says so.
 
 ## Summary
 
 Given many short accounts of one event, the system groups claims by sub-event without supervision,
-scores claim pairs inside each group with a natural language inference (NLI) model, and lists the
-groups whose accounts contradict each other. It never says which account is right.
+scores claim pairs inside each group with a natural language inference (NLI) model, and reports
+where accounts conflict, what they agree on and what only one account says. It never says which
+account is right.
 
 - The NLI scorer reaches **90.0% accuracy** on both MultiNLI validation sets.
-- Clustering cuts the claim pairs sent to the NLI model by **95%** (9,698 instead of 207,385 on the
-  same 1,283 claims) and raises the share of flagged pairs that concern the same annotated rumour
-  story from **2.1% to 27.1%**.
-- Against the cluster-level proxy built from PHEME veracity labels, detection is **only modestly
-  better than trivial baselines**: precision 0.51, recall 0.78, F1 0.62, against F1 0.57 for
-  flagging every cluster and 0.48 for flagging at random.
-- A manual audit of 40 random flagged pairs found **27.5% genuine disagreements, 15% time-driven
-  conflicts and 57.5% false alarms**.
-- The main weakness is the NLI model on tweets: it labels unrelated statements as contradictions
-  with high confidence. The proxy labels are also weak, and understate the detector in both
-  directions (see section 8).
+- On **5,413 human-labelled PHEME tweet pairs** (25.5% contradictions), the scorer's contradiction
+  flags are **61.9% precise at 32.9% recall** with no clustering.
+- Clustering first raises precision on those pairs to **67.2%** and cuts the false-alarm rate on
+  unrelated pairs from 9.4% to 1.2%, but recall falls to **13.2%**, because only 55% of the
+  labelled contradictions end up in the same cluster.
+- Clustering also cuts the pairs sent to the NLI model by **82%** on a like-for-like comparison,
+  and by more than 99% on a full event.
+- The clustering that best matches the annotated rumour stories (HDBSCAN) turned out to be the
+  worst for this task: it keeps only 10% of labelled contradictions together. The default is now
+  agglomerative clustering.
+- A manual audit of 40 random flagged pairs found 27.5% genuine disagreements, 15% time-driven
+  conflicts and 57.5% false alarms (done on the earlier HDBSCAN configuration).
+
+In short: the pipeline surfaces real conflicts at a precision of roughly two in three on labelled
+data, but it misses most of them, and the off-the-shelf NLI model is the main limit.
 
 ## 1. Motivation
 
 Investigators, journalists and fact-checkers often have to reconcile many independent accounts of
-one incident. Reading every pair of statements does not scale: 2,000 tweets about the Charlie
+one incident. Reading every pair of statements does not scale: 2,010 tweets about the Charlie
 Hebdo attack make about two million pairs. The useful output is not a verdict but a short list of
 places where accounts differ, with the conflicting statements side by side and attributed, so a
 person can decide what to check.
@@ -41,10 +47,11 @@ write a single reconciled narrative, or use a generative language model in the d
 - **Natural language inference.** MultiNLI (Williams, Nangia and Bowman, 2018) is a 433k-pair,
   multi-genre corpus labelled entailment / neutral / contradiction. Cross-encoders fine-tuned on
   it, such as DeBERTa-v3 (He et al., 2021), are the standard off-the-shelf contradiction scorers.
-- **Rumour and stance datasets.** PHEME (Zubiaga et al., 2016) collects Twitter threads about
-  breaking-news events, annotated as rumour or non-rumour; the extended release (Kochkina, Liakata
-  and Zubiaga, 2018) adds veracity. RumourEval (Derczynski et al., 2017) added reply stance labels
-  to a subset of PHEME threads; those labels are not in the releases used here.
+- **Rumour datasets.** PHEME (Zubiaga et al., 2016) collects Twitter threads about breaking-news
+  events, annotated as rumour or non-rumour; the extended release (Kochkina, Liakata and Zubiaga,
+  2018) adds veracity. A separate PHEME release pairs rumour tweets and labels the pairs
+  entailment / contradiction / unknown (to our knowledge Lendvai et al., 2016; the citation should
+  be checked against the dataset's own documentation, which is not in the local copy).
 - **Sentence embeddings and topic clustering.** Sentence-BERT (Reimers and Gurevych, 2019)
   provides the embeddings; HDBSCAN (Campello et al., 2013; McInnes et al., 2017) on UMAP-reduced
   embeddings is the recipe popularised by BERTopic (Grootendorst, 2022), from which the
@@ -57,11 +64,11 @@ write a single reconciled narrative, or use a generative language model in the d
 
 ### 3.1 MultiNLI
 
-The only NLI dataset in the project. The scorer is a model already trained on it, used as is;
-further fine-tuning is off by default and was not run. The validation sets are used as a sanity
+The only NLI training corpus in the project. The scorer is a model already trained on it, used as
+is; further fine-tuning is off by default and was not run. The validation sets are used as a sanity
 check: 9,815 matched and 9,832 mismatched pairs after dropping pairs without annotator consensus.
 
-### 3.2 PHEME
+### 3.2 PHEME rumour threads
 
 Nine events are on disk; the main experiments use four.
 
@@ -72,13 +79,13 @@ Nine events are on disk; the main experiments use four.
 | Charlie Hebdo | 2,079 | 2,010 | 1,021 | 445 | 187 / 112 / 146 | 60 |
 | Germanwings crash | 469 | 461 | 228 | 233 | 92 / 108 / 33 | 19 |
 
-(Rumour claims are counted after deduplicating all source tweets. The evaluation set deduplicates rumour tweets only, which gives 447 instead of 445 for Charlie Hebdo.)
+(Rumour claims are counted after deduplicating all source tweets. The evaluation set deduplicates
+rumour tweets only, which gives 447 instead of 445 for Charlie Hebdo.)
 
-**What the annotations contain (verified on the local files).** Rumour threads have
+**What the thread annotations contain (verified on the local files).** Rumour threads have
 `is_rumour`, `category` (the rumour story), `misinformation`, `true`, `links` and `is_turnaround`.
-Non-rumour threads have `is_rumour` only. There are **no reply stance labels and no
-entailment/contradiction labels** in either local release. Veracity is constant within a story:
-no story mixes true and false threads.
+Non-rumour threads have `is_rumour` only. The thread release has no reply stance labels and no
+pair labels. Veracity is constant within a story.
 
 **Unit of analysis.** A claim is one cleaned source tweet, and its account is the author. Replies
 are loadable (`data.include_replies: true`) but are off in the main experiments: they are mostly
@@ -90,13 +97,32 @@ into the earliest tweet. Details are in `data/SCHEMA.md`.
 
 **Language.** Tweets whose Twitter language tag is not English are dropped, because the NLI model
 is English-only. Every source tweet of the four events is tagged English, so this only affects
-replies (5.7% non-English for Ottawa). A multilingual embedder is configured for anyone who keeps
-other languages, but it was not evaluated.
+replies (5.7% non-English for Ottawa).
 
-### 3.3 Proxy labels and their limits
+### 3.3 PHEME RTE: labelled tweet pairs (primary evaluation data)
 
-Because PHEME has no contradiction labels, evaluation uses proxies. They are defined in
-`data/proxy_labels.py` and are never presented as NLI gold.
+`pheme_rte_datasets_2016/` holds tweet pairs from the same four events with a pair label. After
+dropping duplicate ids and identical texts: **5,413 pairs** (1,989 entailment, 2,046 unknown,
+1,378 contradiction) over 533 distinct tweets. 5,230 pairs map onto our rumour claims by tweet id.
+
+What the files show about how the labels were made: every entailment pair names one rumour story,
+and every contradiction or unknown pair names two. So the label comes through the pair's stories
+(same story, two conflicting stories, two unrelated stories), not from reading each tweet pair in
+isolation. Consequences:
+
+- It is a human-defined pair-level reference, far closer to the task than veracity.
+- It is still coarser than sentence-level NLI. Two tweets of one story are "entailment" even if
+  they add different details, and some "contradiction" pairs are about competing claims that are
+  not logical opposites (for example "Parliament Hill is on lockdown" against "University of
+  Ottawa is on lockdown").
+- "Unknown" is treated as neutral.
+
+This dataset reached the repository after the first round of experiments, which is why the
+veracity proxies below exist at all.
+
+### 3.4 Veracity proxies (secondary)
+
+Built from the thread annotations in `data/proxy_labels.py`; never presented as NLI gold.
 
 | Level | Proxy label | Definition |
 |---|---|---|
@@ -104,19 +130,11 @@ Because PHEME has no contradiction labels, evaluation uses proxies. They are def
 | Pair | entailment-like | two non-turnaround tweets of the same **true** story |
 | Pair | neutral-like | two tweets from different stories of the same event |
 | Cluster | disagreement-positive | the cluster mixes tweets of a true story and a false story, or holds a false-story debunk together with a non-turnaround tweet of that story |
-| Cluster (secondary) | contested | a false-story tweet shares the cluster with any tweet that is not from a false story |
 
-Limits, all confirmed in the error analysis:
-
-- Veracity belongs to the story, not the tweet. A tweet filed under a false story may itself be a
-  denial, so "contradiction-like" pairs often agree with each other.
-- Tweets of one true story can still conflict (an early "still alive" against a later "has died").
-- Tweets from different stories are called neutral-like, yet some truly conflict ("148 on board"
-  against "150 on board" are separate stories).
-- Only 17 false-story turnaround tweets exist in the four events, so the contradiction-like class
-  is small (205 pairs).
-- The cluster-level proxy rewards large clusters: the larger a cluster, the more likely it mixes
-  veracities. Cluster size alone ranks clusters about as well as the detector does.
+Known problems, confirmed in the error analysis: a tweet filed under a false story may itself be a
+denial, so "contradiction-like" pairs often agree; tweets of one true story can still conflict;
+and the cluster proxy rewards large clusters. These proxies are kept for the cluster-level view
+only, and are the weaker evidence wherever they disagree with section 3.3.
 
 ## 4. Method
 
@@ -128,16 +146,16 @@ flowchart LR
     D --> E[Cross-account pairs inside each cluster]
     E --> F[NLI in both directions, cached]
     F --> G[Disagreement score per cluster]
-    G --> H[JSON and Markdown report, demo]
+    G --> H[Findings summary, JSON and Markdown report, demo]
 ```
 
 **Embeddings.** `all-MiniLM-L6-v2` (default) and `all-mpnet-base-v2` (comparison), unit-normalised.
 
-**Clustering.** Four algorithms behind one interface: HDBSCAN on a 10-dimensional UMAP reduction;
-k-means with k chosen by silhouette; average-linkage agglomerative clustering cut at cosine
-distance 0.45; and a 10-nearest-neighbour similarity graph partitioned with Louvain. Points left
-unclustered are attached to the nearest cluster centroid if the cosine similarity is at least 0.6;
-otherwise they stay unclustered and are never compared, so they cannot produce a contradiction.
+**Clustering.** Four algorithms behind one interface: average-linkage agglomerative clustering cut
+at cosine distance 0.45 (default); HDBSCAN on a 10-dimensional UMAP reduction; k-means with k
+chosen by silhouette; and a 10-nearest-neighbour similarity graph partitioned with Louvain. Points
+left unclustered are attached to the nearest cluster centroid if the cosine similarity is at least
+0.6; otherwise they stay unclustered and are never compared.
 
 **Cluster labels.** The top class-based TF-IDF terms and the claim closest to the centroid. Both
 are extractive.
@@ -149,34 +167,48 @@ cache. Only pairs inside a cluster and from different accounts are scored, at mo
 
 **Combining the two directions.** The default is `min_contradiction`: a pair counts as
 contradicting only if both directions say so. This departs from the max-contradiction rule
-suggested in the brief, because contradiction is symmetric and the stricter rule flagged 882 pairs
-instead of 2,077 with slightly higher cluster-level precision (section 6.4). `max_contradiction`
-and `mean` remain available in the config.
+suggested in the brief. Contradiction is symmetric, and on the labelled pairs the stricter rule
+gives precision 0.62 instead of 0.45 (section 6.2). `max_contradiction` and `mean` remain available.
 
-**Disagreement score.** For a cluster with scored pairs, a pair contradicts if its probability is
-at least the threshold (0.9). The score is `0.5 * fraction of contradicting pairs + 0.5 * maximum
-contradiction probability`, and the cluster is flagged if at least one pair contradicts.
+**Disagreement score.** A pair contradicts if its probability is at least the threshold (0.9). The
+cluster score is `0.5 * fraction of contradicting pairs + 0.5 * maximum contradiction probability`,
+and the cluster is flagged if at least one pair contradicts.
+
+**Findings summary.** Every report opens with a summary built only from the statements:
+
+- *What the accounts agree on:* a statement that is not part of any flagged conflict and that
+  another account also asserts (that account's claim entails it with probability at least 0.8).
+- *Where the accounts conflict:* each flagged topic with its strongest conflicting pair.
+- *Said by one account only:* statements that nobody restates and nobody contradicts.
+- *What this summary cannot tell you:* fixed caveats (agreement is not proof, flags are prompts,
+  time is not modelled, nothing says who is right).
+
+The summary is extractive and makes no claim about truth. It has unit tests but has not been
+evaluated for accuracy.
 
 **Output.** JSON plus Markdown. For each flagged cluster: label terms, central claim, counts, score,
 and the top contradicting pairs with both texts, both accounts and the probabilities.
 
 ## 5. Experimental setup
 
-- **Evaluation set:** the rumour source tweets of the four events (463, 506, 447 and 233 claims),
-  because only they carry a story and a veracity. The per-event reports are produced on all
-  source tweets.
+- **Labelled-pair evaluation (primary):** the 5,413 PHEME RTE pairs. NLI is scored on every pair;
+  for the pipeline view, each event's rumour tweets are clustered without deduplication and a pair
+  counts as flagged only if both tweets share a cluster and the NLI score reaches the threshold.
+- **Cluster-level evaluation (secondary):** rumour source tweets of the four events (463, 506, 447
+  and 233 claims) against the veracity proxy.
 - **Seeds and config:** seed 42 everywhere; all settings in `configs/default.yaml`.
-- **Hyperparameters were set once, before evaluation, and not tuned on the proxy.** Two choices
-  were made after seeing results and are disclosed as such: HDBSCAN as the default algorithm
-  (best agreement with rumour stories) and `min_contradiction` aggregation.
-- **Not run:** the optional comparison NLI model `roberta-large-mnli` (1.4 GB; the system drive
-  had about 11 GB free), fine-tuning on MultiNLI, the multilingual embedder, and the Ferguson event.
+- **Choices made after seeing results, disclosed as such:** the `min_contradiction` direction rule,
+  and agglomerative clustering as the default. The latter was chosen on the labelled pairs
+  themselves (section 6.4), so its figures on those pairs are optimistic as an estimate for new
+  data. Thresholds and clustering parameters were set once and not tuned.
+- **Not run:** the optional comparison NLI model `roberta-large-mnli`, fine-tuning on MultiNLI or
+  on the RTE pairs, the multilingual embedder, and the Ferguson event.
 
 ## 6. Results
 
 ### 6.1 NLI scorer on MultiNLI
 
-| Validation set | Pairs | Accuracy | Macro-F1 | Entailment P / R | Neutral P / R | Contradiction P / R |
+| Set | Pairs | Accuracy | Macro-F1 | Entailment P / R | Neutral P / R | Contradiction P / R |
 |---|---|---|---|---|---|---|
 | Matched | 9,815 | 0.9001 | 0.8998 | 0.935 / 0.886 | 0.842 / 0.886 | 0.923 / 0.929 |
 | Mismatched | 9,832 | 0.9004 | 0.9001 | 0.930 / 0.893 | 0.839 / 0.881 | 0.932 / 0.927 |
@@ -186,86 +218,126 @@ and the top contradicting pairs with both texts, both accounts and the probabili
 
 The scorer behaves as published on in-domain data. Scoring ran at about 550 pairs per second.
 
-### 6.2 NLI scorer on PHEME proxy pairs
+### 6.2 NLI scorer on labelled PHEME pairs
 
-3,405 proxy pairs (1,600 entailment-like, 1,600 neutral-like, 205 contradiction-like), scored
-with the default both-directions aggregation.
+5,413 pairs; a majority-class guesser gets 37.8% accuracy; 25.5% of pairs are contradictions.
+No clustering is involved here.
 
-| Metric | Value |
-|---|---|
-| Accuracy | 0.445 |
-| Macro-F1 | 0.322 |
-| Entailment-like: precision / recall | 0.674 / 0.094 |
-| Neutral-like: precision / recall | 0.467 / 0.813 |
-| Contradiction-like: precision / recall | 0.156 / 0.302 |
-| Contradiction vs rest at threshold 0.9: precision / recall / F1 | 0.168 / 0.254 / 0.202 |
+| Direction rule | 3-class accuracy | Macro-F1 | Flagged | Contradiction precision | Recall | F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|---|
+| premise_to_hypothesis | 0.467 | 0.435 | 1,305 | 0.507 | 0.480 | 0.493 | 0.462 | 10.3% / 21.5% / 48.0% |
+| max_contradiction | 0.427 | 0.392 | 1,725 | 0.452 | 0.565 | 0.502 | 0.475 | 15.5% / 31.2% / 56.5% |
+| mean | 0.431 | 0.369 | 777 | 0.615 | 0.347 | 0.444 | 0.537 | 4.8% / 10.0% / 34.7% |
+| min_contradiction (default) | 0.461 | 0.407 | 734 | 0.619 | 0.329 | 0.430 | 0.532 | 4.4% / 9.4% / 32.9% |
+
+![PHEME RTE confusion](figures/confusion_pheme_rte.png)
+
+- **Three-class accuracy is poor (0.46).** The main reason is entailment: only 11.6% of labelled
+  entailment pairs are predicted as entailment, and 83% are predicted neutral. Two tweets about
+  the same story usually add different details, which the model correctly reads as "neither
+  implies the other", while the dataset calls them entailment. This is partly a mismatch between
+  story-level labels and sentence-level NLI.
+- **Contradiction is what the project needs, and here the model is useful.** With the default
+  rule a flagged pair is a labelled contradiction 62% of the time, 2.4 times the base rate.
+- **Recall is the weak side:** one labelled contradiction in three is caught.
+- **The direction rule is a precision/recall dial.** Max catches 57% at 45% precision; requiring
+  both directions catches 33% at 62%. F1 is highest for max (0.50); average precision is highest
+  for mean and min (0.53 to 0.54). We keep min because a shorter, cleaner list suits a tool whose
+  output a person has to read.
+
+Per event (default rule):
+
+| Event | Pairs | Entailment / unknown / contradiction | 3-class accuracy | Contradiction precision | Recall |
+|---|---|---|---|---|---|
+| Ottawa shooting | 1,100 | 555 / 168 / 377 | 0.450 | 0.799 | 0.727 |
+| Sydney siege | 1,214 | 332 / 565 / 317 | 0.509 | 0.596 | 0.177 |
+| Charlie Hebdo | 1,936 | 643 / 866 / 427 | 0.465 | 0.395 | 0.234 |
+| Germanwings crash | 1,163 | 459 / 447 / 257 | 0.414 | 0.545 | 0.093 |
+
+Events differ a lot. Ottawa's labelled contradictions are mostly explicit ("still on the loose"
+against "shot dead"). Germanwings' are mostly numeric ("148 on board" against "144 passengers and
+6 crew"), which the model rarely scores as contradiction in both directions.
+
+### 6.3 NLI scorer on the veracity-proxy pairs (secondary)
+
+3,405 proxy pairs: accuracy 0.445, macro-F1 0.322; contradiction-like precision 0.168 and recall
+0.254 at the threshold. These numbers are much worse than section 6.2, and the error analysis
+shows why: most "contradiction-like" proxy pairs are two tweets that both deny the same rumour.
+The proxy understates the scorer.
 
 ![PHEME proxy confusion](figures/confusion_pheme_proxy_nli-deberta-v3-base.png)
 
-Two things explain the low scores. First, 240 of 1,600 pairs of tweets from *different* stories are
-still predicted as contradictions even when both directions must agree (with the max rule it was
-703): the model treats "about something else" as "conflicts". Second, most same-story pairs are
-predicted neutral (1354 of 1,600), which is reasonable for tweets that add different details, but
-counts as an error against "entailment-like". This table measures the mismatch between NLI and the
-proxy as much as it measures the model. With max-contradiction aggregation the same pairs gave
-accuracy 0.331 and macro-F1 0.273.
+### 6.4 What clustering does to the labelled pairs
 
-Share of proxy pairs scored at or above 0.9, by aggregation rule (computed from the cached
-directional scores):
+A pair is flagged by the pipeline only if both tweets are in the same cluster **and** the NLI
+score reaches the threshold (5,230 mappable pairs, MiniLM embeddings).
 
-| Aggregation | Entailment-like | Neutral-like | Contradiction-like |
-|---|---|---|---|
-| max of the two directions | 13.3% | 37.8% | 52.2% |
-| mean | 4.9% | 12.6% | 25.9% |
-| min (both directions) | 4.3% | 11.9% | 25.4% |
+| Clustering | Same cluster: entailment / unknown / contradiction | Flagged | Contradiction precision | Recall | F1 |
+|---|---|---|---|---|---|
+| HDBSCAN | 31.1% / 1.9% / 9.9% | 55 | 0.455 | 0.019 | 0.036 |
+| k-means | 55.2% / 9.2% / 47.0% | 242 | 0.731 | 0.131 | 0.223 |
+| agglomerative (default) | 73.0% / 18.5% / 55.1% | 265 | 0.672 | 0.132 | 0.221 |
+| graph (Louvain) | 62.9% / 10.1% / 51.1% | 248 | 0.698 | 0.128 | 0.217 |
+| no clustering (NLI on every pair) | 100% / 100% / 100% | 727 | 0.618 | 0.333 | 0.433 |
 
-Requiring both directions cuts false alarms on unrelated pairs by two thirds, at the cost of half
-the recall on contradiction-like pairs.
+![Flag rates](figures/rte_flag_rates.png)
 
-### 6.3 Clustering
+- **Clustering is a precision filter.** With agglomerative clusters, the share of labelled
+  "unknown" pairs that get flagged drops from 9.4% to 1.2%, and precision rises from 0.62 to 0.67
+  (0.73 with k-means).
+- **It costs recall.** Only 55% of labelled contradictions share a cluster, so pipeline recall is
+  13% against 33% for NLI alone. Clustering cannot add recall; it can only remove pairs.
+- **HDBSCAN fails here.** It was the best match to the annotated rumour stories (section 6.5),
+  but labelled contradictions are by construction between two *different* stories about the same
+  thing. A clustering that reproduces stories faithfully therefore separates exactly the pairs
+  that matter. This is why the default was changed to agglomerative, which keeps the most
+  contradictions together.
+- **These pairs flatter "no clustering".** The labelled set is curated: only 38% of its pairs are
+  unrelated. In a real event almost all pairs are unrelated (section 6.7), so NLI on every pair
+  would be far less precise there than the 0.62 measured here, and the filter matters more.
+
+### 6.5 Clustering quality
 
 Mean over the four events. ARI and NMI compare clusters with the annotated rumour story; noise
-points count as singletons.
+points count as singletons. UMAP, HDBSCAN and k-means show small run-to-run variation (second or
+third decimal place) on this machine.
 
 | Embedding | Algorithm | Clusters | Unclustered | Silhouette | Davies-Bouldin | ARI | NMI |
 |---|---|---|---|---|---|---|---|
-| MiniLM | HDBSCAN | 43.2 | 1.1% | 0.162 | 2.04 | **0.424** | **0.706** |
+| MiniLM | HDBSCAN | 43.0 | 1.0% | 0.159 | 2.07 | **0.436** | **0.708** |
 | MiniLM | k-means | 7.5 | 0.0% | 0.196 | 2.58 | 0.252 | 0.488 |
-| MiniLM | agglomerative | 25.5 | 2.5% | 0.206 | **1.74** | 0.273 | 0.631 |
-| MiniLM | graph (Louvain) | 10.0 | 1.0% | 0.187 | 2.48 | 0.300 | 0.574 |
-| mpnet | HDBSCAN | 42.2 | 0.6% | 0.155 | 1.97 | 0.281 | 0.679 |
-| mpnet | k-means | 24.2 | 0.2% | 0.197 | 2.29 | 0.363 | 0.632 |
-| mpnet | agglomerative | 21.5 | 2.7% | **0.209** | 1.76 | 0.262 | 0.637 |
-| mpnet | graph (Louvain) | 10.8 | 0.5% | 0.183 | 2.46 | 0.322 | 0.621 |
+| MiniLM | agglomerative (default) | 25.5 | 2.5% | 0.206 | **1.74** | 0.273 | 0.631 |
+| MiniLM | graph (Louvain) | 10.0 | 1.0% | 0.187 | 2.48 | 0.299 | 0.573 |
+| mpnet | HDBSCAN | 39.8 | 0.5% | 0.159 | 2.00 | 0.307 | 0.685 |
+| mpnet | k-means | 23.0 | 0.2% | 0.194 | 2.33 | 0.371 | 0.629 |
+| mpnet | agglomerative | 21.8 | 2.7% | **0.208** | 1.75 | 0.262 | 0.638 |
+| mpnet | graph (Louvain) | 10.8 | 0.5% | 0.184 | 2.46 | 0.325 | 0.621 |
 
 ![ARI](figures/clustering_ari.png)
 ![NMI](figures/clustering_nmi.png)
 ![Silhouette](figures/clustering_silhouette.png)
 
-- HDBSCAN on MiniLM agrees best with the rumour stories and finds a number of clusters (43) close
-  to the number of stories (19 to 61 per event). It became the default.
-- Silhouette is low for every method (0.16 to 0.21) and does not rank methods the way ARI does:
-  tweets about one event sit close together, so sub-events are not well separated in embedding space.
-- The larger mpnet model is not better than MiniLM here.
-- Results vary by event. HDBSCAN on mpnet finds only 5 clusters for Germanwings (ARI 0.18) but 51
-  for Charlie Hebdo (ARI 0.42).
+- HDBSCAN on MiniLM agrees best with the rumour stories. As section 6.4 shows, that is the wrong
+  target for this task: the best "story" clustering is the worst contradiction filter.
+- Agglomerative clustering has the best intrinsic scores (silhouette, Davies-Bouldin).
+- Silhouette is low for every method (0.16 to 0.21): sub-events of one event overlap in embedding space.
+- The larger mpnet model is not better than MiniLM.
 
-Limits of the extrinsic check: rumour stories are an annotator's grouping of rumours, not a
-ground-truth list of sub-events; many stories are singletons (20 of 51 for Ottawa), which
-penalises any method that merges; and the comparison with thread grouping proposed in the brief is
-uninformative for source tweets, because each source tweet is its own thread.
+Limits of the extrinsic check: rumour stories are an annotator's grouping, not a ground-truth list
+of sub-events; many stories are singletons (20 of 51 for Ottawa); and the comparison with thread
+grouping proposed in the brief is uninformative for source tweets, because each is its own thread.
 
 ![Germanwings clusters](figures/eval_clusters_germanwings-crash.png)
 
-### 6.4 Full pipeline against the cluster-level proxy
+### 6.6 Full pipeline against the cluster-level veracity proxy (secondary)
 
-Pooled over the four events, threshold 0.9, both-directions aggregation.
+Pooled over the four events, threshold 0.9, both-directions rule.
 
 | Embedding | Algorithm | Clusters | Proxy-positive | Flagged | Precision | Recall | F1 | Avg. precision |
 |---|---|---|---|---|---|---|---|---|
-| MiniLM | HDBSCAN (default) | 172 | 68 | 104 | 0.510 | 0.779 | 0.616 | 0.495 |
+| MiniLM | HDBSCAN | 172 | 68 | 104 | 0.510 | 0.779 | 0.616 | 0.495 |
 | MiniLM | k-means | 30 | 21 | 27 | 0.778 | 1.000 | 0.875 | 0.830 |
-| MiniLM | agglomerative | 102 | 28 | 53 | 0.434 | 0.821 | 0.568 | 0.639 |
+| MiniLM | agglomerative (default) | 102 | 28 | 53 | 0.434 | 0.821 | 0.568 | 0.639 |
 | MiniLM | graph | 40 | 25 | 36 | 0.694 | 1.000 | 0.820 | 0.728 |
 | mpnet | HDBSCAN | 159 | 45 | 79 | 0.342 | 0.600 | 0.435 | 0.342 |
 | mpnet | k-means | 92 | 36 | 55 | 0.527 | 0.806 | 0.637 | 0.574 |
@@ -273,107 +345,93 @@ Pooled over the four events, threshold 0.9, both-directions aggregation.
 | mpnet | graph | 43 | 27 | 39 | 0.692 | 1.000 | 0.818 | 0.794 |
 
 **These rows are not comparable as a ranking.** Each configuration defines its own clusters, so
-the base rate differs: with k-means on MiniLM there are 30 large clusters of which 70% are
-proxy-positive, so flagging everything already gives precision 0.70. The high k-means and graph
-scores reflect coarse clusters, not better detection.
+the base rate differs (27% proxy-positive for the default, 70% for k-means on MiniLM). High
+k-means and graph scores reflect coarse clusters, not better detection.
 
-Baselines on the default configuration's 172 clusters (39.5% proxy-positive):
+Baselines on the default configuration's 102 clusters (27.5% proxy-positive):
 
 | Method | Precision | Recall | F1 |
 |---|---|---|---|
-| Detector (default) | 0.510 | 0.779 | 0.616 |
-| Flag every cluster | 0.395 | 1.000 | 0.567 |
-| Random, same flag rate as the detector | 0.395 | 0.604 | 0.477 |
+| Detector (default) | 0.434 | 0.821 | 0.568 |
+| Flag every cluster | 0.275 | 1.000 | 0.431 |
+| Random, same flag rate as the detector | 0.273 | 0.517 | 0.357 |
 | Flag nothing (majority class) | 0.000 | 0.000 | 0.000 |
 
-The detector is 11.5 points of precision above chance. That is a real but small gain. Against the
-secondary "contested" proxy the result is similar (precision 0.529, recall 0.764, F1 0.625).
-
-Per event (default configuration):
+The detector is 16 points of precision above chance and catches 82% of proxy-positive clusters.
 
 | Event | Clusters | Proxy-positive | Flagged | Precision | Recall | F1 |
 |---|---|---|---|---|---|---|
-| Ottawa shooting | 45 | 10 | 27 | 0.333 | 0.900 | 0.486 |
-| Sydney siege | 56 | 27 | 33 | 0.576 | 0.704 | 0.633 |
-| Charlie Hebdo | 45 | 18 | 33 | 0.485 | 0.889 | 0.627 |
-| Germanwings crash | 26 | 13 | 11 | 0.818 | 0.692 | 0.750 |
+| Ottawa shooting | 27 | 5 | 14 | 0.357 | 1.000 | 0.526 |
+| Sydney siege | 34 | 9 | 17 | 0.412 | 0.778 | 0.538 |
+| Charlie Hebdo | 26 | 6 | 16 | 0.312 | 0.833 | 0.455 |
+| Germanwings crash | 15 | 8 | 6 | 1.000 | 0.750 | 0.857 |
 
-Germanwings works best: its rumours are crisp factual claims (a distress call was or was not sent,
-148 or 150 people on board). Ottawa works worst: most of its stories are true, and its tweets
-differ mainly in timing and detail.
+Direction-rule ablation and threshold sweep (default embedding and clustering):
 
-Aggregation ablation (default embedding and clustering):
-
-| Aggregation | Flagged pairs | Flagged clusters | Precision | Recall | F1 | Debunk pairs flagged |
-|---|---|---|---|---|---|---|
-| max_contradiction | 2,077 | 134 of 172 | 0.463 | 0.912 | 0.614 | 22.9% |
-| mean | 929 | 104 | 0.510 | 0.779 | 0.616 | 12.2% |
-| min_contradiction (default) | 882 | 104 | 0.510 | 0.779 | 0.616 | 11.7% |
-
-Threshold sweep (default configuration):
+| Direction rule | Flagged pairs | Flagged clusters | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| max_contradiction | 2,044 | 66 of 102 | 0.394 | 0.929 | 0.553 |
+| mean | 845 | 53 of 102 | 0.434 | 0.821 | 0.568 |
+| min_contradiction (default) | 794 | 53 of 102 | 0.434 | 0.821 | 0.568 |
 
 | Threshold | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 0.95 | 0.98 | 0.99 |
 |---|---|---|---|---|---|---|---|---|
-| Flagged clusters | 107 | 106 | 106 | 104 | 104 | 99 | 93 | 83 |
-| Precision | 0.505 | 0.500 | 0.500 | 0.510 | 0.510 | 0.505 | 0.505 | 0.530 |
-| Recall | 0.794 | 0.779 | 0.779 | 0.779 | 0.779 | 0.735 | 0.691 | 0.647 |
-| F1 | 0.617 | 0.609 | 0.609 | 0.616 | 0.616 | 0.599 | 0.584 | 0.583 |
+| Flagged clusters | 54 | 54 | 54 | 53 | 53 | 52 | 49 | 45 |
+| Precision | 0.426 | 0.426 | 0.426 | 0.434 | 0.434 | 0.442 | 0.449 | 0.489 |
+| Recall | 0.821 | 0.821 | 0.821 | 0.821 | 0.821 | 0.821 | 0.786 | 0.786 |
+| F1 | 0.561 | 0.561 | 0.561 | 0.568 | 0.568 | 0.575 | 0.571 | 0.603 |
 
 ![Threshold curves](figures/threshold_curves.png)
 
-The curves are flat. The NLI model's contradiction probabilities are bimodal (near 0 or near 1), so
-moving the threshold between 0.5 and 0.9 changes almost nothing. The threshold is not a useful
-control for this model; a stricter flag rule or a relevance filter would be.
+The curves are flat: the model's contradiction probabilities sit near 0 or 1, so the threshold is
+not a useful control between 0.5 and 0.95.
 
-### 6.5 Effect of clustering: all-pairs baseline
+### 6.7 Effect of clustering on cost: all-pairs baseline
 
-All-pairs NLI was run on at most 350 claims per event (1,283 claims in total, 207,385 cross-account
-pairs) and compared with clustering on the same claims, without the per-cluster pair cap.
+All-pairs NLI on at most 350 claims per event (1,283 claims), compared with in-cluster pairs on
+the same claims, without the per-cluster pair cap.
 
 | | All pairs, no clustering | In-cluster pairs |
 |---|---|---|
-| Pairs scored | 207,385 | 9,698 (95.4% fewer) |
-| Pairs flagged at 0.9 | 28,735 | 1,022 |
-| Flagged pairs about the same rumour story | 2.1% | 27.1% |
-| Flagged pairs matching the conflict proxy (true vs false story, or debunk pair) | 21.3% | 11.3% |
-| Debunk pairs kept together | 145 of 145 | 67 of 145 (46.2%) |
-| Debunk pairs flagged | 36 (24.8%) | 17 (11.7%) |
-| NLI time on the GPU | about 11 minutes | under 1 minute |
+| Pairs scored | 207,385 | 38,526 (81.7% fewer) |
+| Pairs flagged at 0.9 | 28,735 | 3,910 |
+| Flagged pairs about the same rumour story | 2.1% | 8.1% |
+| Debunk pairs kept together | 145 of 145 | 73 of 145 |
+| Debunk pairs flagged | 36 | 25 |
 
 ![Pairs compared](figures/pairs_compared.png)
 ![Pair precision](figures/pair_precision.png)
 
-Clustering makes the output usable: 1,022 flagged pairs instead of 28,735, and they are 13 times
-more likely to concern the same story. It costs recall: more than half of the debunk pairs are
-split across clusters and never compared. The conflict-proxy rate is higher for all pairs, but
-that proxy is satisfied by any true-story tweet paired with any false-story tweet, related or not,
-so it mostly measures how many cross-story pairs there are.
+Without clustering the model flags 28,735 pairs, 98% of which compare tweets about different
+stories. Clustering removes 86% of those flags. The agglomerative default produces a few very
+large clusters, which is why the saving here (82%) is smaller than with HDBSCAN (95% in the
+earlier run); in normal use the 400-pair cap per cluster bounds the cost.
 
-On full events the saving is larger: for Charlie Hebdo, 10,100 pairs are scored instead of 2,019,045.
-
-### 6.6 Per-event reports on all source tweets
+### 6.8 Per-event reports on all source tweets
 
 | Event | Claims | Clusters | Unclustered | Pairs scored | All pairs would be | Flagged clusters |
 |---|---|---|---|---|---|---|
-| Ottawa shooting | 871 | 82 | 17 | 4,592 | 378,885 | 48 |
-| Sydney siege | 1,182 | 121 | 24 | 7,591 | 697,971 | 72 |
-| Charlie Hebdo | 2,010 | 223 | 62 | 10,100 | 2,019,045 | 141 |
-| Germanwings crash | 461 | 47 | 8 | 2,573 | 106,030 | 22 |
+| Ottawa shooting | 871 | 67 | 39 | 4,182 | 378,885 | 28 |
+| Sydney siege | 1,182 | 85 | 39 | 5,937 | 697,971 | 36 |
+| Charlie Hebdo | 2,010 | 156 | 88 | 8,563 | 2,019,045 | 71 |
+| Germanwings crash | 461 | 41 | 25 | 2,349 | 106,030 | 15 |
 
-Between 47% and 63% of clusters are flagged. That is too many for the list to be a shortlist by
-itself; a reader should sort by disagreement score and start at the top. The reports are written
-to `outputs/reports/` (not versioned, because they quote thousands of tweets).
+Between 37% and 46% of clusters are flagged, so a reader should sort by disagreement score and
+start at the top. The reports are written to `outputs/reports/` (not versioned, because they quote
+thousands of tweets).
 
-Example of what a flagged cluster looks like (Germanwings, cluster "send, distress signal, did"):
-three tweets say a distress signal was sent, eight say it was not, and the heatmap separates the
-two groups cleanly.
+Example (Germanwings, cluster "distress, sent, did"): one group of tweets says a distress signal
+was sent, another says it was not, and the heatmap separates the two groups cleanly.
 
 ![Heatmap](figures/eval_heatmap_germanwings-crash.png)
 ![Contradiction graph](figures/eval_graph_germanwings-crash.png)
 
-### 6.7 Manual audit and error analysis
+### 6.9 Manual audit and error analysis
 
-Full details and 18 commented examples are in [`ERROR_ANALYSIS.md`](ERROR_ANALYSIS.md).
+Full details and 18 commented examples are in [`ERROR_ANALYSIS.md`](ERROR_ANALYSIS.md). **The audit
+and the examples were made on the earlier HDBSCAN configuration** (882 flagged pairs; its
+candidates are kept in `results/error_candidates_hdbscan.json`). They mostly describe the NLI
+model's behaviour, which did not change, but they were not repeated for the new default.
 
 | Judgement of 40 random flagged pairs | Pairs | Share |
 |---|---|---|
@@ -383,17 +441,13 @@ Full details and 18 commented examples are in [`ERROR_ANALYSIS.md`](ERROR_ANALYS
 
 The judgements were made by a single reader (the AI assistant that built the pipeline) and have
 not been checked by a second annotator. With 40 pairs, the 95% interval for "genuine or
-time-driven" is roughly 27% to 59%.
+time-driven" is roughly 27% to 59%. The audit precision (42.5%) is lower than the 62 to 67%
+measured on labelled pairs, which is expected: the audit sampled from all rumour tweets, where
+unrelated pairs are far more common than in the curated labelled set.
 
-Main findings:
-
-- Of nine sampled "false positives" against the proxy, five are real conflicts the proxy cannot
-  see ("still alive" against "has died" inside a true story).
-- Of nine sampled "false negatives", six are pairs of tweets that both debunk the rumour and so
-  agree with each other.
-- Real model errors come from attribution phrases ("AFP says" against "CTV reports"), headline
-  fragments with no proposition, entity aliases ("Charb" and "Stephane Charbonnier"), and numbers
-  that count different things (142 passengers and 150 people on board).
+Recurring model errors: attribution phrases ("AFP says" against "CTV reports"), headline fragments
+with no proposition, entity aliases ("Charb" and "Stephane Charbonnier"), and numbers that count
+different things (142 passengers and 150 people on board).
 
 ## 7. Runtime
 
@@ -401,43 +455,47 @@ Measured on an RTX 4050 laptop GPU (6 GB), Windows 11, Python 3.11.
 
 | Step | Time |
 |---|---|
-| NLI stage (MultiNLI 19,647 pairs + proxy pairs) | 48 s |
-| Clustering stage (2 embedders, 4 algorithms, 4 events) | 74 s |
-| Pipeline stage, cold cache (8 configurations + all-pairs baseline) | 889 s, of which the all-pairs baseline is 641 s |
-| Pipeline stage, warm cache | 94 s |
-| Per-event reports on all source tweets | 117 s |
+| NLI stage, cold (MultiNLI 19,647 pairs + proxy pairs) | 48 s |
+| Labelled-pair (RTE) stage | 47 s cold, 41 s warm |
+| Clustering stage (2 embedders, 4 algorithms, 4 events) | about 70 s |
+| Pipeline stage, cold cache (8 configurations + all-pairs baseline; measured with the earlier HDBSCAN default) | 889 s, of which the all-pairs baseline is 641 s |
+| Pipeline stage, warm cache | 91 s |
+| Per-event reports on all source tweets | 41 to 117 s |
+| Whole `run_all.py`, warm caches | 279 s |
 | First read of PHEME from disk (about 100,000 small files) | several minutes; cleaned claims are cached afterwards |
 
-A cold full run is therefore about 20 minutes plus model downloads (about 1.2 GB) and the first
-PHEME read. Sample mode timings on CPU are in the README.
+A cold full run is about 20 minutes plus model downloads (about 1.2 GB) and the first PHEME read.
+Sample mode on CPU with cold caches took 424 s before the labelled-pair stage was added; it has
+not been re-timed since.
 
 ## 8. Limitations
 
-1. **No gold labels.** Every PHEME score is against a proxy. The proxy marks real conflicts as
-   false positives and agreeing debunks as false negatives, so the precision and recall figures
-   are indicative only. The manual audit is small and single-annotator.
-2. **The NLI model over-predicts contradiction on tweets.** 38% of unrelated-story pairs score at
-   or above 0.9 in at least one direction, and 12% in both.
-3. **Too many clusters are flagged** (about half) for the output to be a shortlist without ranking.
-4. **Clustering loses recall.** About half of the rumour-versus-debunk pairs land in different
-   clusters and are never compared.
-5. **No notion of time.** An update ("lockdown lifted") looks the same as a dispute.
-6. **Large clusters are sampled.** At most 400 pairs per cluster are scored, so a contradiction in
-   a big cluster can be missed.
-7. **English only**, source tweets only, four events. Replies, other languages and other domains
-   (such as witness statements) were not evaluated. The demo accepts pasted free text, but that
-   path has had only a smoke test.
-8. **Cross-configuration comparisons are confounded** by cluster granularity (section 6.4).
-9. **Deduplication removes verbatim agreement**, so the system measures disagreement among distinct
-   wordings, not how many accounts back each side.
+1. **Recall is low.** On labelled pairs the pipeline finds about 13% of contradictions; NLI alone
+   finds 33%. Most real conflicts are missed.
+2. **Labels are story-level.** The RTE labels come through rumour stories, not per-pair reading,
+   so some "contradictions" are competing claims and many "entailments" are loosely related.
+3. **The default clustering was selected on the labelled pairs**, with no held-out split. Four
+   options were compared and none was tuned, but the reported pipeline figures are still optimistic.
+4. **The NLI model over-predicts contradiction on unrelated tweets** (9% of labelled unknown pairs
+   at 0.9 even with the strict rule; 31% with the max rule).
+5. **Too many clusters are flagged** (about 40%) for the output to be a shortlist without ranking.
+6. **No notion of time.** An update ("lockdown lifted") looks the same as a dispute.
+7. **Large clusters are sampled.** At most 400 pairs per cluster are scored.
+8. **English only**, source tweets only, four events. Witness-statement style input has had a
+   small made-up example and unit tests only.
+9. **The findings summary is not evaluated.** "Agree" relies on the same NLI model's entailment
+   score, which section 6.2 shows is conservative, so real agreement is under-reported.
+10. **The manual audit is small, single-annotator, and from the earlier configuration.**
 
 ## 9. Ethics
 
 - **The tool surfaces disagreement; it does not determine truth.** A flagged pair means two
   accounts appear to conflict according to a statistical model. It says nothing about which one
   is accurate, and nothing about honesty or fault. Every report carries that statement.
-- **False alarms are frequent** (about 6 in 10 flagged pairs in the audit). Output must be read by
-  a person and must not be used as evidence against anyone.
+- **"Accounts agree" is not "this is true".** Accounts can repeat one source or one mistake. The
+  findings summary says so in every report.
+- **False alarms are frequent** (about one in three flagged labelled pairs, more on raw events).
+  Output must be read by a person and must not be used as evidence against anyone.
 - **Witnesses disagree for innocent reasons:** different vantage points, different times, memory.
   Treating inconsistency as a sign of lying would be a misuse.
 - **Privacy.** The data are public tweets with account names. Reports quote them with attribution
@@ -448,29 +506,29 @@ PHEME read. Sample mode timings on CPU are in the README.
 
 ## 10. Future work
 
+- Fine-tune the NLI model on the labelled PHEME pairs with leave-one-event-out splits (the dataset
+  ships such splits); this is the most direct way to raise recall.
+- Choose the clustering on a held-out event instead of on all labelled pairs.
 - A relevance gate before NLI: compare two claims only if they share an entity and a predicate.
 - Use timestamps to separate "superseded by a later report" from "disputed".
-- Strip attribution phrases and resolve entity aliases before scoring.
-- Collect a few hundred pair-level human labels on PHEME to replace the proxy, with two annotators.
-- Fine-tune or calibrate the NLI model on in-domain tweet pairs; compare `roberta-large-mnli`.
-- Use RumourEval stance labels (support / deny / query / comment) for the PHEME threads they cover.
-- Rank flagged clusters by a calibrated score so the top of the list is reliable.
-- Evaluate on witness-statement style text, the original motivating use case.
+- Strip attribution phrases, resolve entity aliases and handle numeric claims explicitly.
+- Repeat the manual audit on the current default with two annotators.
+- Evaluate the findings summary, and test on witness-statement style text.
 
 ## 11. Reproducing
 
 See the repository `README.md` for exact commands. In short: create the environment, then
-`python run_all.py` regenerates every number and figure in this report, and
-`python run_all.py --sample` runs a small subset.
+`python run_all.py` regenerates every number and figure, and `python -m evaluation.make_tables`
+regenerates the tables.
 
 ## References
 
 - Campello, Moulavi and Sander (2013). Density-based clustering based on hierarchical density estimates. PAKDD.
 - de Marneffe, Rafferty and Manning (2008). Finding contradictions in text. ACL.
-- Derczynski et al. (2017). SemEval-2017 Task 8: RumourEval. SemEval.
 - Grootendorst (2022). BERTopic: neural topic modeling with a class-based TF-IDF procedure. arXiv:2203.05794.
 - He, Gao and Chen (2021). DeBERTaV3. arXiv:2111.09543.
 - Kochkina, Liakata and Zubiaga (2018). All-in-one: multi-task learning for rumour verification. COLING.
+- Lendvai, Augenstein, Bontcheva and Declerck (2016). Monolingual social media datasets for detecting contradiction and entailment. LREC. (Believed to be the source of the PHEME RTE pairs; verify.)
 - McInnes, Healy and Astels (2017). hdbscan: hierarchical density based clustering. JOSS.
 - Reimers and Gurevych (2019). Sentence-BERT. EMNLP.
 - Williams, Nangia and Bowman (2018). A broad-coverage challenge corpus for sentence understanding through inference. NAACL.

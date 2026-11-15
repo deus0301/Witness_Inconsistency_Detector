@@ -28,7 +28,7 @@ Investigators, journalists, and fact-checkers routinely have to reconcile many i
 ## Datasets
 
 - **MultiNLI** — the only NLI dataset in the project. It underpins the contradiction scorer: a model pretrained on MultiNLI (`cross-encoder/nli-deberta-v3-base`) is used directly, and the MultiNLI validation sets (matched and mismatched) are used to sanity-check it.
-- **PHEME** — tweets about real crisis events (Ottawa shooting, Sydney siege, Germanwings crash, Charlie Hebdo shooting); serves as the real-world, multi-person-same-event dataset. PHEME has **no** entailment/contradiction labels and, in the releases we use, no reply stance labels. It provides rumour/non-rumour, the rumour story each thread belongs to, and that story's veracity (true / false / unverified). Evaluation therefore uses documented proxy labels built from those annotations (see `data/SCHEMA.md` and `reports/REPORT.md`).
+- **PHEME** — tweets about real crisis events (Ottawa shooting, Sydney siege, Germanwings crash, Charlie Hebdo shooting); serves as the real-world, multi-person-same-event dataset. Two parts are used: the rumour threads (rumour story, veracity) and the PHEME RTE release (`pheme_rte_datasets_2016/`), which labels 5,413 tweet pairs as entailment / contradiction / unknown and is the main evaluation set. See `data/SCHEMA.md` and `reports/REPORT.md`.
 
 *(An earlier plan to use scraped Famous Trials witness statements plus synthetic scenarios was dropped in favor of the MultiNLI + PHEME route. A later plan to also use a second NLI corpus was dropped as well: MultiNLI is the only NLI dataset.)*
 

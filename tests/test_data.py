@@ -166,3 +166,27 @@ def test_build_proxy_pairs_balanced_and_seeded():
     assert labels.count("contradiction") == 4  # only 4 debunk pairs exist
     again = build_proxy_pairs(claims, per_class=5, seed=1)
     assert [(a.claim_id, b.claim_id) for a, b, _ in pairs] == [(a.claim_id, b.claim_id) for a, b, _ in again]
+
+
+# ---------------------------------------------------------------- PHEME RTE
+def test_pheme_rte_loader(tmp_path):
+    from data.pheme_rte import load_pheme_rte
+
+    xml = ('<root><pair entailment="CONTRADICTION" id="1.json_2.json" rte_type="x" '
+           'rumours="Story 1: a; Story 2: b"><t>148 people on board URL</t><h>#Germanwings: 150 on board</h></pair>'
+           '<pair entailment="ENTAILMENT" id="1.json_3.json" rte_type="x" rumours="a"><t>Plane crashed &amp; burned</t>'
+           '<h>A plane has crashed</h></pair>'
+           '<pair entailment="UNKNOWN" id="2.json_3.json" rte_type="x" rumours="a; b"><t>Same text</t><h>Same text</h></pair>'
+           '<pair entailment="ENTAILMENT" id="1.json_3.json" rte_type="x" rumours="a"><t>dup</t><h>dup id</h></pair></root>')
+    (tmp_path / "pheme_rte_gw_en.xml").write_text(xml, encoding="utf-8")
+    pairs = load_pheme_rte(tmp_path, "germanwings-crash")
+    assert [p.label for p in pairs] == ["contradiction", "entailment"]  # identical + duplicate id dropped
+    first = pairs[0]
+    assert (first.tweet_a, first.tweet_b) == ("1", "2")
+    assert first.premise == "148 people on board" and first.hypothesis == "Germanwings: 150 on board"
+    assert pairs[1].premise == "Plane crashed & burned"
+    assert len(load_pheme_rte(tmp_path, "germanwings-crash", drop_identical=False)) == 3
+    with pytest.raises(ValueError):
+        load_pheme_rte(tmp_path, "ferguson")
+    with pytest.raises(FileNotFoundError):
+        load_pheme_rte(tmp_path, "ottawashooting")

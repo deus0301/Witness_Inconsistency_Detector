@@ -17,7 +17,7 @@
       "nmi": 0.7339403454730992,
       "homogeneity": 0.7881297519793672,
       "completeness": 0.6867233359446725,
-      "seconds": 15.02
+      "seconds": 0.72
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -36,7 +36,7 @@
       "nmi": 0.5861112174117911,
       "homogeneity": 0.4962271020693246,
       "completeness": 0.7157605284377186,
-      "seconds": 7.2
+      "seconds": 6.21
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -55,7 +55,7 @@
       "nmi": 0.7135288711997287,
       "homogeneity": 0.671758013926141,
       "completeness": 0.760838903356314,
-      "seconds": 0.08
+      "seconds": 0.05
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -74,7 +74,7 @@
       "nmi": 0.6648021225744312,
       "homogeneity": 0.5807687906537469,
       "completeness": 0.7772674931166493,
-      "seconds": 0.56
+      "seconds": 0.1
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -93,7 +93,7 @@
       "nmi": 0.6247209912185788,
       "homogeneity": 0.6578891746552543,
       "completeness": 0.5947367067147691,
-      "seconds": 0.9
+      "seconds": 0.91
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -112,7 +112,7 @@
       "nmi": 0.3187732438576369,
       "homogeneity": 0.2316432596498515,
       "completeness": 0.5109680966711073,
-      "seconds": 7.19
+      "seconds": 6.57
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -131,7 +131,7 @@
       "nmi": 0.5572022235145951,
       "homogeneity": 0.4782530837808285,
       "completeness": 0.6673705222755876,
-      "seconds": 0.07
+      "seconds": 0.08
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -169,7 +169,7 @@
       "nmi": 0.742706809046346,
       "homogeneity": 0.7446921514770656,
       "completeness": 0.7407320242783374,
-      "seconds": 0.83
+      "seconds": 0.76
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -188,7 +188,7 @@
       "nmi": 0.4059724652669103,
       "homogeneity": 0.2821078264240396,
       "completeness": 0.7237468577009751,
-      "seconds": 6.53
+      "seconds": 6.21
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -226,7 +226,7 @@
       "nmi": 0.5586359019579729,
       "homogeneity": 0.44674874016757815,
       "completeness": 0.7452926866724346,
-      "seconds": 0.08
+      "seconds": 0.06
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -245,7 +245,7 @@
       "nmi": 0.7319176584676396,
       "homogeneity": 0.7878694670324249,
       "completeness": 0.683385916147225,
-      "seconds": 0.44
+      "seconds": 0.39
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -264,7 +264,7 @@
       "nmi": 0.6393077384469021,
       "homogeneity": 0.5791582412779086,
       "completeness": 0.7133990508579278,
-      "seconds": 2.68
+      "seconds": 2.57
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -283,7 +283,7 @@
       "nmi": 0.6937959376447849,
       "homogeneity": 0.6299947818056448,
       "completeness": 0.7719758759347575,
-      "seconds": 0.03
+      "seconds": 0.04
     },
     {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -302,7 +302,7 @@
       "nmi": 0.6345429763397096,
       "homogeneity": 0.5530690499954111,
       "completeness": 0.7441681720294772,
-      "seconds": 0.06
+      "seconds": 0.04
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -321,7 +321,7 @@
       "nmi": 0.72796614935403,
       "homogeneity": 0.7768973084784482,
       "completeness": 0.684833430044139,
-      "seconds": 0.9
+      "seconds": 0.84
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -340,7 +340,7 @@
       "nmi": 0.6570895446589474,
       "homogeneity": 0.6083573240913429,
       "completeness": 0.7143089803514503,
-      "seconds": 11.14
+      "seconds": 10.94
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -378,7 +378,7 @@
       "nmi": 0.6449450878066306,
       "homogeneity": 0.5659660485839026,
       "completeness": 0.7495416014861322,
-      "seconds": 0.08
+      "seconds": 0.07
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -397,7 +397,7 @@
       "nmi": 0.6718433076522129,
       "homogeneity": 0.7243908899834095,
       "completeness": 0.6264037486903,
-      "seconds": 1.0
+      "seconds": 0.91
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -416,7 +416,7 @@
       "nmi": 0.38053595911025956,
       "homogeneity": 0.2701329622485853,
       "completeness": 0.6435568030554674,
-      "seconds": 12.15
+      "seconds": 11.94
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -435,7 +435,7 @@
       "nmi": 0.511489944414915,
       "homogeneity": 0.4179356039991413,
       "completeness": 0.6590080342405314,
-      "seconds": 0.11
+      "seconds": 0.08
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -454,7 +454,7 @@
       "nmi": 0.531790492046711,
       "homogeneity": 0.44272915596672574,
       "completeness": 0.6657070348395502,
-      "seconds": 0.1
+      "seconds": 0.09
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -473,7 +473,7 @@
       "nmi": 0.7748643995763259,
       "homogeneity": 0.782998598592646,
       "completeness": 0.7668974675317132,
-      "seconds": 0.87
+      "seconds": 0.83
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -492,7 +492,7 @@
       "nmi": 0.7461732146721631,
       "homogeneity": 0.7625921704066541,
       "completeness": 0.7304463725631772,
-      "seconds": 10.56
+      "seconds": 10.07
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -511,7 +511,7 @@
       "nmi": 0.6514781511818555,
       "homogeneity": 0.5516315677254602,
       "completeness": 0.795457853599892,
-      "seconds": 0.08
+      "seconds": 0.07
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -530,7 +530,7 @@
       "nmi": 0.6138073433185752,
       "homogeneity": 0.4840948855393924,
       "completeness": 0.8384755347071065,
-      "seconds": 0.1
+      "seconds": 0.07
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -549,7 +549,7 @@
       "nmi": 0.565591685847635,
       "homogeneity": 0.39649670302497947,
       "completeness": 0.9861633346370586,
-      "seconds": 0.46
+      "seconds": 0.4
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -568,7 +568,7 @@
       "nmi": 0.7326764844145118,
       "homogeneity": 0.7219317872781358,
       "completeness": 0.7437458458147723,
-      "seconds": 6.07
+      "seconds": 6.43
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -587,7 +587,7 @@
       "nmi": 0.7092066238350446,
       "homogeneity": 0.6230531216220069,
       "completeness": 0.8230093389558611,
-      "seconds": 0.03
+      "seconds": 0.04
     },
     {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -606,7 +606,7 @@
       "nmi": 0.6947672447881724,
       "homogeneity": 0.625779797666929,
       "completeness": 0.7808499981062125,
-      "seconds": 0.06
+      "seconds": 0.05
     }
   ],
   "summary": [

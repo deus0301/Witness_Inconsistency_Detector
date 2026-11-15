@@ -7,6 +7,7 @@ paths:
   pheme_v2: data/raw/pheme_v2/all-rnr-annotated-threads   # 9 events, veracity annotations
   pheme_v1: data/raw/pheme_v1/pheme-rnr-dataset            # 5 events, fallback (no veracity)
   multinli: data/raw/multinli_1.0/multinli_1.0
+  pheme_rte: pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits   # labelled tweet pairs
   models_dir: models          # optional local snapshots: models/<name with / replaced by __>
   cache_dir: outputs/cache    # embedding + NLI score caches
   output_dir: outputs
@@ -38,7 +39,7 @@ nli:
   fp16: true                       # only used on GPU
 
 clustering:
-  algorithm: hdbscan               # hdbscan | kmeans | agglomerative | graph
+  algorithm: agglomerative         # hdbscan | kmeans | agglomerative | graph
   hdbscan: {min_cluster_size: 3, min_samples: 2, umap_dim: 10}
   kmeans: {k_min: 5, k_max: 60, k_step: 5}
   agglomerative: {distance_threshold: 0.45, linkage: average}

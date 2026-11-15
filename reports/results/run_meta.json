@@ -3,15 +3,17 @@
   "mock_models": false,
   "stages": [
     "nli",
+    "rte",
     "clustering",
     "pipeline",
     "reports"
   ],
   "timings_seconds": {
-    "nli": 1.3,
-    "clustering": 85.7,
-    "pipeline": 94.4,
-    "reports": 10.1
+    "nli": 0.7,
+    "rte": 41.2,
+    "clustering": 67.8,
+    "pipeline": 91.0,
+    "reports": 41.0
   },
   "figures": [
     "clustering_ari.png",
@@ -24,6 +26,7 @@
     "confusion_mnli_dev_matched_nli-deberta-v3-base.png",
     "confusion_mnli_dev_mismatched_nli-deberta-v3-base.png",
     "confusion_pheme_proxy_nli-deberta-v3-base.png",
+    "confusion_pheme_rte.png",
     "eval_clusters_charliehebdo.png",
     "eval_clusters_germanwings-crash.png",
     "eval_clusters_ottawashooting.png",
@@ -46,6 +49,7 @@
     "heatmap_sydneysiege.png",
     "pair_precision.png",
     "pairs_compared.png",
+    "rte_flag_rates.png",
     "threshold_curves.png"
   ],
   "models": {
@@ -69,8 +73,8 @@
     "germanwings-crash": 233
   },
   "nli_cache": {
-    "model_calls": 0,
-    "cache_hits": 720627
+    "model_calls": 23016,
+    "cache_hits": 1489333
   },
   "device": "NVIDIA GeForce RTX 4050 Laptop GPU"
 }

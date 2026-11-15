@@ -64,9 +64,20 @@ Then, per event:
 ```
 
 - Rumour `annotation.json` keys: `is_rumour`, `category`, `misinformation`, `true`, `links`, `is_turnaround`. Non-rumour threads have `is_rumour` only.
-- **There are no per-reply stance labels (support / deny / query / comment) and no entailment / contradiction labels** in either local release.
+- **The thread releases have no per-reply stance labels (support / deny / query / comment) and no entailment / contradiction labels.** Pair labels come from the separate PHEME RTE release described below.
 - Veracity is constant within a rumour story (`category`): no story of the four main events mixes true and false threads.
 - PHEME v1 (`data/raw/pheme_v1`) has the same folders without `annotation.json`; the loader falls back to it and then yields claims without story or veracity.
+
+## Labelled pairs: PHEME RTE (`pheme_rte.py`)
+
+`pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml` holds
+tweet pairs of the four main events as `<pair entailment="ENTAILMENT|CONTRADICTION|UNKNOWN"
+id="<tweetA>.json_<tweetB>.json" rumours="..."><t>..</t><h>..</h></pair>`. `load_pheme_rte` returns
+`RTEPair(event, pair_id, tweet_a, tweet_b, premise, hypothesis, label, stories)` with `UNKNOWN`
+mapped to `neutral`, the `URL` placeholder removed, and duplicate ids and identical-text pairs
+dropped (5,413 pairs). Entailment pairs name one rumour story, contradiction and unknown pairs
+name two, so labels are assigned through stories. Tweet ids match `Claim.claim_id` after the
+`<event>:` prefix. These pairs are used for evaluation only.
 
 ## NLI examples
 

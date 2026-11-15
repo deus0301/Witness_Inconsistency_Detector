@@ -73,6 +73,7 @@ Datasets are read from local folders and are never downloaded by the code:
 data/raw/pheme_v2/all-rnr-annotated-threads/<event>-all-rnr-threads/{rumours,non-rumours}/<thread>/...
 data/raw/pheme_v1/pheme-rnr-dataset/<event>/...                 (fallback, no veracity)
 data/raw/multinli_1.0/multinli_1.0/multinli_1.0_dev_{matched,mismatched}.jsonl
+pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml   (in the repo)
 ```
 
 Models download from HuggingFace on first use (about 1.2 GB in total) and are cached. To work
@@ -96,7 +97,8 @@ every threshold are in [`configs/default.yaml`](configs/default.yaml). `data/raw
 | Small subset, real models | `python run_all.py --sample` |
 | Force CPU | `python run_all.py --sample --cpu` |
 | No downloads at all (mock models) | `python run_all.py --mock --sample` |
-| Only some stages | `python run_all.py --stages nli clustering` (also `pipeline`, `reports`) |
+| Only some stages | `python run_all.py --stages nli rte` (also `clustering`, `pipeline`, `reports`) |
+| Regenerate the results tables | `python -m evaluation.make_tables` |
 | One PHEME event | `python -m pipeline.run --event germanwings-crash --rumours-only` |
 | Your own accounts | `python -m pipeline.run --input examples/witness_accounts.txt` |
 | Demo | `python -m streamlit run app/streamlit_app.py` |
@@ -113,68 +115,72 @@ metrics go to `reports/results/` and figures to `reports/figures/`; sample runs 
 | Run | Hardware | Time |
 |---|---|---|
 | `run_all.py --mock --sample` | any | under 1 minute |
-| `run_all.py --sample --cpu`, cold caches | laptop CPU | about 7 minutes (424 s) |
+| `run_all.py --sample --cpu`, cold caches | laptop CPU | about 7 minutes (424 s, measured before the labelled-pair stage was added) |
 | `run_all.py`, cold caches | RTX 4050 laptop GPU | about 20 minutes, plus model downloads and a first read of PHEME that takes several minutes |
-| `run_all.py`, warm caches | RTX 4050 laptop GPU | about 4 minutes (231 s) |
+| `run_all.py`, warm caches | RTX 4050 laptop GPU | about 5 minutes (279 s) |
 | Unit tests | any | about 15 seconds |
 
-## What PHEME contains, and the proxy labels
+## Evaluation data
 
-Checked on the local files: rumour threads are annotated with the rumour story (`category`), its
-veracity (true / false / unverified) and a turnaround flag. There are **no reply stance labels and
-no entailment or contradiction labels**. Evaluation therefore uses proxies, which are weaker than
-real labels and are never presented as NLI gold:
-
-- **Pair level:** a debunking tweet against another tweet of the same false story is
-  contradiction-like; two tweets of the same true story are entailment-like; tweets from different
-  stories are neutral-like.
-- **Cluster level:** a cluster that mixes a true and a false story, or holds a debunk next to its
-  rumour, is disagreement-positive.
+- **PHEME RTE labelled pairs (primary).** `pheme_rte_datasets_2016/` has 5,413 tweet pairs from the
+  four events labelled entailment, contradiction or unknown. The labels are assigned through the
+  rumour stories the two tweets belong to, so they are human-defined but coarser than
+  sentence-level NLI.
+- **Veracity proxies (secondary).** The PHEME thread release itself has no pair labels and no
+  stance labels, only the rumour story, its veracity and a turnaround flag. A cluster that mixes a
+  true and a false story counts as disagreement-positive. This is a weak signal and is used for
+  the cluster-level view only.
 
 ## Results summary
 
 Four events (Ottawa shooting, Sydney siege, Charlie Hebdo, Germanwings crash). Numbers are from
-`reports/results/*.json`.
+`reports/results/*.json`; every table is in [`reports/RESULTS_TABLES.md`](reports/RESULTS_TABLES.md).
 
 | Check | Result |
 |---|---|
 | NLI scorer, MultiNLI validation matched / mismatched | accuracy 0.9001 / 0.9004 |
-| NLI scorer, PHEME proxy pairs (3,405) | accuracy 0.445, macro-F1 0.322 |
-| Best clustering vs rumour stories (MiniLM + HDBSCAN, mean of 4 events) | ARI 0.424, NMI 0.706, silhouette 0.162 |
-| Pairs sent to NLI, in-cluster vs all pairs (same 1,283 claims) | 9,698 vs 207,385 (95% fewer) |
-| Flagged pairs about the same rumour story, in-cluster vs all pairs | 27.1% vs 2.1% |
-| Cluster-level detection vs proxy (172 clusters, 68 positive) | precision 0.510, recall 0.779, F1 0.616 |
-| Baselines on the same clusters | flag everything: F1 0.567; random: F1 0.477 |
-| Manual audit of 40 random flagged pairs | 27.5% genuine, 15% time-driven, 57.5% false alarms |
+| NLI scorer on 5,413 labelled PHEME pairs, contradiction flags (base rate 25.5%) | precision 0.619, recall 0.329 |
+| Same pairs through the pipeline (agglomerative clusters, then NLI) | precision 0.672, recall 0.132 |
+| Labelled "unknown" pairs wrongly flagged, NLI alone vs pipeline | 9.4% vs 1.2% |
+| Labelled contradictions that land in the same cluster: agglomerative / HDBSCAN | 55.1% / 9.9% |
+| Pairs sent to NLI, in-cluster vs all pairs (same 1,283 claims) | 38,526 vs 207,385 (82% fewer) |
+| Cluster-level detection vs veracity proxy (102 clusters, 28 positive) | precision 0.434, recall 0.821, F1 0.568 |
+| Baselines on the same clusters | flag everything: F1 0.431; random: F1 0.357 |
+| Manual audit of 40 random flagged pairs (earlier HDBSCAN configuration) | 27.5% genuine, 15% time-driven, 57.5% false alarms |
 
 What this means:
 
-- The scorer is as good as published on MultiNLI, but on tweets it often labels unrelated
-  statements as contradictions.
-- Clustering is what makes the output usable: far fewer comparisons, and flagged pairs that are
-  mostly on-topic. It also splits about half of the rumour-versus-debunk pairs apart.
-- Against the veracity proxy, detection is only modestly better than trivial baselines, and about
-  half of all clusters get flagged. The proxy also misjudges the detector in both directions; see
-  the error analysis.
+- When the system flags a pair, it is a labelled contradiction about two times in three. It finds
+  only a minority of the contradictions that exist.
+- Clustering is a precision filter and a cost saver. It cannot add recall, and it loses the
+  contradictions it splits apart.
+- The clustering that best reproduces the annotated rumour stories (HDBSCAN) is the worst for this
+  task, because contradicting tweets belong to different stories. The default is agglomerative.
+- The off-the-shelf NLI model is the main limit. Fine-tuning it on the labelled pairs is the
+  obvious next step and has not been done.
 
-![Clusters](reports/figures/eval_clusters_germanwings-crash.png)
+![Flag rates](reports/figures/rte_flag_rates.png)
 ![Heatmap](reports/figures/eval_heatmap_germanwings-crash.png)
+
+Every report also opens with a **findings summary** built only from the statements: what the
+accounts agree on, where they conflict, what only one account says, and what the summary cannot
+tell you.
 
 ## Repository layout
 
 ```
 .
 ├── docs/          project brief and work division
-├── data/          loaders, cleaning, Claim schema, proxy labels, SCHEMA.md (+ raw/, gitignored)
+├── data/          loaders (PHEME, PHEME RTE, MultiNLI), cleaning, Claim schema, proxy labels, SCHEMA.md (+ raw/, gitignored)
 ├── nli_scoring/   NLI scorer (real and mock), cache
 ├── clustering/    embeddings, clustering algorithms, cluster labels, metrics
-├── pipeline/      config, disagreement score, end-to-end run, report rendering
+├── pipeline/      config, disagreement score, findings summary, end-to-end run, report rendering
 ├── evaluation/    experiments, baselines, ablations, plots
 ├── notebooks/     01_eda.ipynb
 ├── app/           Streamlit demo
 ├── examples/      sample witness accounts
 ├── reports/       REPORT.md, ERROR_ANALYSIS.md, PRESENTATION_OUTLINE.md, results/, figures/
-├── tests/         40 unit tests (mock models, no network)
+├── tests/         unit tests (mock models, no network)
 ├── configs/       default.yaml, sample.yaml
 ├── models/        optional local model snapshots (gitignored)
 ├── requirements.txt
@@ -183,7 +189,8 @@ What this means:
 
 ## Known limitations
 
-No gold contradiction labels exist for PHEME, so all PHEME scores are against proxies. The system
-is English-only, uses source tweets only, has no notion of time (an update looks like a dispute),
-and samples at most 400 pairs per cluster. A flagged pair is a prompt for a person to look, not a
+Recall is low (the pipeline finds about 13% of labelled contradictions). The labelled pairs are
+story-level, and the default clustering was chosen on them without a held-out split. The system is
+English-only, uses source tweets only, has no notion of time (an update looks like a dispute), and
+samples at most 400 pairs per cluster. A flagged pair is a prompt for a person to look, not a
 finding. Details are in section 8 of the report.

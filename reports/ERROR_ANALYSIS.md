@@ -1,9 +1,14 @@
 # Error analysis
 
-Default configuration: `all-MiniLM-L6-v2` embeddings, HDBSCAN, `cross-encoder/nli-deberta-v3-base`,
-both-directions (`min_contradiction`) aggregation, threshold 0.9, rumour source tweets of the four
-main events. All examples come from `reports/results/error_candidates.json`, which the evaluation
-writes; the texts are the cleaned tweets.
+**Configuration analysed:** `all-MiniLM-L6-v2` embeddings, **HDBSCAN** clustering,
+`cross-encoder/nli-deberta-v3-base`, both-directions (`min_contradiction`) rule, threshold 0.9,
+rumour source tweets of the four main events. This was the default when the analysis was done.
+The default clustering has since changed to agglomerative (see section 6.4 of the report), and the
+analysis was not repeated. The examples come from `reports/results/error_candidates_hdbscan.json`;
+the texts are the cleaned tweets. Most findings concern the NLI model, which did not change.
+
+"False positive" and "false negative" below are relative to the **veracity proxy**, not to the
+PHEME RTE labelled pairs, which arrived later and are the better reference.
 
 Two things are examined:
 

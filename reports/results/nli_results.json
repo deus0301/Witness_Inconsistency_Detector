@@ -47,7 +47,7 @@
             2986
           ]
         ],
-        "seconds": 0.6
+        "seconds": 0.2
       },
       "dev_mismatched": {
         "n": 9832,
@@ -95,7 +95,7 @@
             3002
           ]
         ],
-        "seconds": 0.3
+        "seconds": 0.2
       }
     },
     "pheme_proxy": {
