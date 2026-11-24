@@ -26,7 +26,8 @@ from clustering.labels import central_claim_per_cluster, top_terms_per_cluster
 from data.cleaning import clean_text, n_tokens, split_sentences
 from data.schema import Claim
 from nli_scoring.scorer import BaseScorer, build_scorer
-from pipeline.config import fix_console_encoding, load_config, resolve_path, set_seed
+from pipeline.config import (apply_finetuned, fix_console_encoding, load_config, resolve_path,
+                             set_seed)
 from pipeline.disagreement import cluster_pairs, disagreement_stats
 from pipeline.findings import build_findings
 from pipeline.report import render_markdown
@@ -242,6 +243,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--config", help="path to a YAML config (default: configs/default.yaml)")
     parser.add_argument("--sample", action="store_true", help="small-subset mode (minutes on CPU)")
     parser.add_argument("--mock", action="store_true", help="use mock models (no downloads)")
+    parser.add_argument("--finetuned", action="store_true",
+                        help="use the fine-tuned NLI checkpoint (finetune.checkpoint)")
     parser.add_argument("--algorithm", help="override the clustering algorithm")
     parser.add_argument("--threshold", type=float, help="override the contradiction threshold")
     parser.add_argument("--rumours-only", action="store_true",
@@ -251,6 +254,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     cfg = load_config(args.config, sample=args.sample)
     if args.mock:
         cfg["models"]["mock"] = True
+    if args.finetuned and not cfg["finetune"].get("active"):
+        apply_finetuned(cfg)
     if args.threshold is not None:
         cfg["disagreement"]["contradiction_threshold"] = args.threshold
 

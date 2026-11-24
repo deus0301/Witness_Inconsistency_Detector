@@ -19,7 +19,8 @@ from typing import Sequence
 import numpy as np
 
 from data.schema import NLI_LABELS
-from pipeline.config import pick_device, resolve_model, resolve_path, slug, text_hash
+from pipeline.config import (FINETUNE_META_FILE, pick_device, resolve_model, resolve_path, slug,
+                             text_hash)
 
 E, N, C = 0, 1, 2  # column order of every probability array in this project
 
@@ -189,7 +190,8 @@ class NLIScorer(BaseScorer):
     def __init__(self, model_name: str, batch_size: int = 32, max_length: int = 128,
                  device: str | None = None, fp16: bool = True,
                  cache_path: str | Path | None = None,
-                 aggregation: str = "max_contradiction", verbose: bool = True) -> None:
+                 aggregation: str = "max_contradiction", verbose: bool = True,
+                 model=None, tokenizer=None) -> None:
         super().__init__(cache_path, aggregation)
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -200,9 +202,13 @@ class NLIScorer(BaseScorer):
         self.max_length = max_length
         self.device = device or pick_device()
         self.fp16 = fp16 and self.device == "cuda"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-        self.model.to(self.device).eval()
+        if model is None:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            self.model.to(self.device)
+        else:  # an already loaded model (used during fine-tuning)
+            self.tokenizer, self.model = tokenizer, model
+        self.model.eval()
         self.id2label = dict(self.model.config.id2label)
         self.permutation = label_permutation(self.id2label)
         if verbose:
@@ -273,6 +279,18 @@ def build_scorer(cfg: dict, model_key: str = "nli", use_cache: bool = True) -> B
     return NLIScorer(
         resolve_model(name, cfg), batch_size=cfg["nli"]["batch_size"],
         max_length=cfg["nli"]["max_length"], fp16=cfg["nli"]["fp16"], device=pick_device(cfg),
-        cache_path=cache_dir / f"nli_{slug(name)}.sqlite" if use_cache else None,
+        cache_path=cache_dir / cache_file_name(name, cfg) if use_cache else None,
         aggregation=agg,
     )
+
+
+def cache_file_name(name: str, cfg: dict) -> str:
+    """SQLite cache file of a model. A fine-tuned checkpoint also carries its training run id,
+    so retraining into the same folder never reuses old scores."""
+    run_id = ""
+    meta = Path(resolve_model(name, cfg)) / FINETUNE_META_FILE
+    if meta.is_file():
+        import json
+
+        run_id = "_" + str(json.loads(meta.read_text(encoding="utf-8")).get("run_id", ""))
+    return f"nli_{slug(name)}{run_id}.sqlite"
