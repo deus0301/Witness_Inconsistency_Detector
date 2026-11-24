@@ -15,6 +15,10 @@ from data.schema import Claim  # noqa: E402
 from pipeline.config import load_config  # noqa: E402
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "smoke: slow end-to-end fine-tuning smoke run (GPU or FINETUNE_SMOKE=1)")
+
+
 @pytest.fixture
 def cfg(tmp_path):
     """Sample config with mock models and all outputs redirected to a temp folder."""
