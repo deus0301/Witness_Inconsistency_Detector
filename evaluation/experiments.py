@@ -34,7 +34,7 @@ from pipeline.config import (REPO_ROOT, fix_console_encoding, load_config, resol
 from pipeline.disagreement import disagreement_stats
 from pipeline.run import PipelineResult, run_pipeline, save_report
 
-STAGES = ("nli", "rte", "clustering", "pipeline", "reports")
+STAGES = ("nli", "rte", "validity", "clustering", "pipeline", "reports")
 
 
 # --------------------------------------------------------------------------- helpers
@@ -160,12 +160,14 @@ def summarise_labelled(truth: Sequence[str], probs: np.ndarray, thr: float,
 
 
 def pipeline_on_labelled_pairs(cfg: dict, pairs_by_event: dict[str, list], probs: np.ndarray,
-                               thr: float, embedder: Any, algo: str) -> dict[str, Any]:
+                               thr: float, embedder: Any, algo: str,
+                               return_masks: bool = False) -> dict[str, Any]:
     """What clustering does to labelled pairs: a pair is flagged by the pipeline only if both
     tweets share a cluster and its NLI contradiction probability reaches ``thr``.
 
     ``probs`` rows follow the pairs of ``pairs_by_event`` in dict order. Each event's rumour
-    source tweets are clustered without deduplication.
+    source tweets are clustered without deduplication. With ``return_masks`` the per-pair
+    boolean arrays ``_mapped`` and ``_same_cluster`` are added (not JSON-serialisable).
     """
     nodedup = dict(cfg, data=dict(cfg["data"], dedup=False, max_claims_per_event=None))
     events = list(pairs_by_event)
@@ -196,7 +198,9 @@ def pipeline_on_labelled_pairs(cfg: dict, pairs_by_event: dict[str, list], probs
     nli_flag = probs[m, 2] >= thr
     pipe_flag = nli_flag & same_cluster[m]
     lab = truth[m]
+    masks = {"_mapped": mapped, "_same_cluster": same_cluster} if return_masks else {}
     return {
+        **masks,
         "n_pairs_mapped": int(m.sum()),
         "clustering_metrics": clustering,
         "same_cluster_rate_by_label": {l: float(same_cluster[m][lab == l].mean()) for l in NLI_LABELS},
@@ -468,6 +472,8 @@ def eval_pipeline(cfg: dict, event_claims: dict[str, list[Claim]], embedders: di
                                   "f1": 2 * prevalence / (1 + prevalence) if prevalence else 0.0},
             "flag_no_cluster (majority class)": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
         }
+        size_check = cluster_size_check(default_records, thr, cfg)
+        baselines.update(size_check.pop("baselines"))
 
     # ---- no-clustering baseline: all-pairs NLI on a capped subset, vs clustering on the same subset
     cap = cfg["evaluation"]["allpairs_max_claims"]
@@ -521,8 +527,62 @@ def eval_pipeline(cfg: dict, event_claims: dict[str, list[Claim]], embedders: di
 
     return ({"default_config": default_key, "threshold": thr, "threshold_grid": grid,
              "nli_aggregation": original, "aggregation_ablation": aggregation_ablation,
-             "configs": configs, "baselines": baselines, "no_clustering_baseline": no_clustering},
+             "configs": configs, "baselines": baselines, "no_clustering_baseline": no_clustering,
+             **(size_check if default_records else {})},
             default_results)
+
+
+def cluster_size_check(records: list[dict], threshold: float, cfg: dict) -> dict[str, Any]:
+    """Is the cluster-level result more than "big clusters get flagged"?
+
+    The proxy label (a cluster mixes a true and a false story) and the flag (>= 1 pair over
+    the threshold) both become likelier as clusters grow. This adds baselines that flag the
+    k largest clusters (by claims, and by pairs scored) at the detector's own flag count,
+    ranks clusters by ``disagreement_score`` for AP, saves the per-cluster records, and gives
+    cluster-bootstrap CIs (clusters resampled within each event).
+    """
+    from sklearn.metrics import average_precision_score
+    from evaluation.validity import group_bootstrap
+
+    dis = cfg["disagreement"]
+    stats = [disagreement_stats(r["probs"], threshold, dis["score_weight_fraction"],
+                                dis["min_contradicting_pairs"]) for r in records]
+    y = np.array([r["positive"] for r in records], dtype=bool)
+    flagged = np.array([s["flagged"] for s in stats], dtype=bool)
+    k = int(flagged.sum())
+    size = np.array([r["size"] for r in records], dtype=float)
+    npairs = np.array([len(r["probs"]) for r in records], dtype=float)
+    score = np.array([s["disagreement_score"] for s in stats])
+    maxc = np.array([s["max_contradiction"] for s in stats])
+
+    def top_k(values: np.ndarray) -> np.ndarray:
+        out = np.zeros(len(values), dtype=bool)
+        out[np.argsort(-values, kind="stable")[:k]] = True
+        return out
+
+    systems = {"detector": (flagged, score), "flag_all": (np.ones(len(y), dtype=bool), None),
+               "top_k_by_size": (top_k(size), size), "top_k_by_pairs_scored": (top_k(npairs), npairs)}
+    boot = group_bootstrap(y, [f"{r['event']}:{r['cluster_id']}" for r in records],
+                           [r["event"] for r in records], systems,
+                           [("detector", "flag_all"), ("detector", "top_k_by_size"),
+                            ("detector", "top_k_by_pairs_scored")],
+                           int(cfg["evaluation"].get("bootstrap_samples", 2000)), cfg["seed"])
+    ap = (lambda s: float(average_precision_score(y, s)) if 0 < y.sum() < len(y) else None)
+    baselines = {f"{name}_at_system_flag_count": {
+        "precision": boot["systems"][name]["precision"]["value"],
+        "recall": boot["systems"][name]["recall"]["value"], "f1": boot["systems"][name]["f1"]["value"]}
+        for name in ("top_k_by_size", "top_k_by_pairs_scored")}
+    return {
+        "baselines": baselines,
+        "cluster_level_ranking_ap": {"disagreement_score": ap(score), "max_contradiction": ap(maxc),
+                                     "size": ap(size), "pairs_scored": ap(npairs)},
+        "cluster_level_bootstrap": boot,
+        "default_cluster_records": [
+            {"event": r["event"], "cluster_id": r["cluster_id"], "size": r["size"],
+             "n_pairs_scored": int(n), "proxy_positive": bool(r["positive"]), "flagged": bool(f),
+             "max_contradiction": float(m), "disagreement_score": float(s)}
+            for r, n, f, m, s in zip(records, npairs, flagged, maxc, score)],
+    }
 
 
 # --------------------------------------------------------------------------- error analysis
@@ -771,6 +831,13 @@ def run_evaluation(cfg: dict, stages: Sequence[str] = STAGES, compare_nli: bool 
             timings["rte"] = round(time.time() - t0, 1)
         else:
             print(f"[rte] skipped: {resolve_path(cfg, 'pheme_rte')} not found", flush=True)
+
+    if "validity" in stages and resolve_path(cfg, "pheme_rte").is_dir():
+        from evaluation.validity import run_validity
+
+        t0 = time.time()
+        run_validity(cfg, scorer)
+        timings["validity"] = round(time.time() - t0, 1)
 
     if "clustering" in stages:
         t0 = time.time()

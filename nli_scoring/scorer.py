@@ -142,6 +142,7 @@ class BaseScorer:
         self.aggregation = aggregation
         self.n_model_calls = 0
         self.n_cache_hits = 0
+        self.n_truncated = 0  # model inputs that filled the whole max_length window
 
     def _predict(self, pairs: Sequence[tuple[str, str]]) -> np.ndarray:  # pragma: no cover
         raise NotImplementedError
@@ -226,6 +227,12 @@ class NLIScorer(BaseScorer):
                 [pairs[i][0] for i in idx], [pairs[i][1] for i in idx],
                 padding=True, truncation=True, max_length=self.max_length, return_tensors="pt",
             ).to(self.device)
+            try:
+                mask = batch["attention_mask"]
+            except (KeyError, TypeError):  # tokenizers without a mask (test doubles)
+                mask = None
+            if mask is not None:
+                self.n_truncated += int((mask.sum(dim=1) >= self.max_length).sum())
             with torch.inference_mode():
                 if self.fp16:
                     with torch.autocast("cuda", dtype=torch.float16):
@@ -284,13 +291,20 @@ def build_scorer(cfg: dict, model_key: str = "nli", use_cache: bool = True) -> B
     )
 
 
+LEGACY_MAX_LENGTH = 128  # caches written before the length was part of the file name
+
+
 def cache_file_name(name: str, cfg: dict) -> str:
     """SQLite cache file of a model. A fine-tuned checkpoint also carries its training run id,
-    so retraining into the same folder never reuses old scores."""
+    so retraining into the same folder never reuses old scores. The input length is part of
+    the name too (scores truncated at 128 tokens differ from scores at 256); the original
+    length 128 keeps the old file name so existing caches stay valid."""
     run_id = ""
     meta = Path(resolve_model(name, cfg)) / FINETUNE_META_FILE
     if meta.is_file():
         import json
 
         run_id = "_" + str(json.loads(meta.read_text(encoding="utf-8")).get("run_id", ""))
-    return f"nli_{slug(name)}{run_id}.sqlite"
+    max_length = int(cfg["nli"]["max_length"])
+    length = "" if max_length == LEGACY_MAX_LENGTH else f"_len{max_length}"
+    return f"nli_{slug(name)}{run_id}{length}.sqlite"

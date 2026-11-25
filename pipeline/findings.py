@@ -58,7 +58,7 @@ def build_findings(claims: Sequence[Claim], labels: np.ndarray, clusters: list[d
     # supporters[s] = claims of OTHER accounts that entail statement s (directional, cached)
     supporters: dict[int, set[int]] = defaultdict(set)
     if len(pairs):
-        texts = [c.text for c in claims]
+        texts = [c.metadata.get("nli_text") or c.text for c in claims]  # same text NLI scored
         fwd = scorer.score_directional([(texts[i], texts[j]) for i, j in pairs])   # i entails j ?
         back = scorer.score_directional([(texts[j], texts[i]) for i, j in pairs])  # j entails i ?
         for (i, j), a, b in zip(pairs, fwd, back):

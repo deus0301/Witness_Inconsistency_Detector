@@ -66,6 +66,19 @@ with st.sidebar:
     threshold = st.slider("Contradiction threshold", 0.5, 0.99,
                           float(cfg["disagreement"]["contradiction_threshold"]), 0.01)
     st.markdown(f"Embeddings: `{cfg['models']['embedding']}`  \nNLI: `{cfg['models']['nli']}`")
+    st.markdown("**Text layer (pasted accounts only)**")
+    abbrev = st.checkbox("Abbreviation-aware sentence splitter",
+                         value=cfg["data"].get("sentence_splitter") == "abbrev",
+                         help="Do not split after Dr., St., approx. and similar.")
+    clauses = st.checkbox("Split sentences over 40 words into clauses",
+                          value=bool(cfg["data"].get("max_claim_words")),
+                          help="A pair must fit the NLI model's 128-token window.")
+    ground = st.checkbox("Speaker grounding", value=bool(cfg["nli"].get("ground_speaker")),
+                         help="'I was inside' -> 'Witness A was inside' before NLI; "
+                              "'I heard two shots' -> 'Two shots'.")
+    cfg["data"]["sentence_splitter"] = "abbrev" if abbrev else "simple"
+    cfg["data"]["max_claim_words"] = (cfg["data"].get("max_claim_words") or 40) if clauses else None
+    cfg["nli"]["ground_speaker"] = ground
 
 source = st.radio("Input", ["Paste accounts", "PHEME event"], horizontal=True)
 claims = []
@@ -73,7 +86,7 @@ name = "custom"
 if source == "Paste accounts":
     raw = st.text_area("One account per paragraph (blank line between accounts). "
                        "Optionally start a paragraph with a name and a colon.", EXAMPLE, height=260)
-    claims = accounts_to_claims(parse_accounts_text(raw), event="custom")
+    claims = accounts_to_claims(parse_accounts_text(raw), event="custom", cfg=cfg)
     # short inputs: looser clusters so related sentences are actually compared
     cut = st.sidebar.slider("Agglomerative distance threshold", 0.2, 0.9, 0.6, 0.05)
     small_input_overrides(cfg, len(claims), cut)
@@ -91,6 +104,10 @@ else:
         claims = load_event_from_config(cfg, name, rumours_only=rumours_only, max_claims=n_max)
 
 st.write(f"**{len(claims)} claims** from **{len({c.account_id for c in claims})} accounts**")
+if source == "Paste accounts" and claims:
+    with st.expander("Claims as split, and the text the NLI model sees"):
+        st.table([{"account": c.account_id, "claim": c.text,
+                   "NLI input": c.metadata.get("nli_text") or c.text} for c in claims])
 
 if st.button("Detect disagreement", type="primary", disabled=len(claims) < 2):
     cfg["models"]["mock"] = mock

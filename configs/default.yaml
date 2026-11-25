@@ -25,6 +25,9 @@ data:
   min_tokens: 4               # drop cleaned tweets shorter than this
   dedup: true                 # drop exact duplicates of the normalised text (keep earliest)
   max_claims_per_event: null  # null = no cap
+  # --- pasted / free-text accounts only (PHEME tweets are not split)
+  sentence_splitter: abbrev   # abbrev (not after Dr. St. approx. ...) | simple (split after every . ! ?)
+  max_claim_words: 40         # split longer sentences into clauses so a pair fits nli.max_length; null = never
 
 models:
   nli: cross-encoder/nli-deberta-v3-base
@@ -39,6 +42,8 @@ nli:
   max_length: 128
   aggregation: min_contradiction   # combine the two directions: max_contradiction | min_contradiction | mean
   fp16: true                       # only used on GPU
+  ground_speaker: true             # pasted accounts: "I"/"my"/"we" -> the account's name before NLI
+                                   # (pipeline/grounding.py; "I heard/saw X" -> "X")
 
 clustering:
   algorithm: agglomerative         # hdbscan | kmeans | agglomerative | graph
@@ -69,6 +74,7 @@ evaluation:
   aggregations: [max_contradiction, mean, min_contradiction]   # ablation on the default config
   allpairs_max_claims: 350         # all-pairs baseline is run on at most this many claims/event
   error_examples: 20
+  bootstrap_samples: 2000          # story-group / cluster bootstrap resamples (evaluation/validity.py)
 
 finetune:                          # NLI fine-tuning on PHEME RTE (training/finetune_nli.py)
   # --- use in the pipeline / Streamlit app

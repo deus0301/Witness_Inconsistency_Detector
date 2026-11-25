@@ -23,13 +23,14 @@ import numpy as np
 from clustering.cluster import cluster_from_config
 from clustering.embed import build_embedder
 from clustering.labels import central_claim_per_cluster, top_terms_per_cluster
-from data.cleaning import clean_text, n_tokens, split_sentences
+from data.cleaning import clean_text, n_tokens, split_long_claim, split_sentences
 from data.schema import Claim
 from nli_scoring.scorer import BaseScorer, build_scorer
 from pipeline.config import (apply_finetuned, fix_console_encoding, load_config, resolve_path,
                              set_seed)
 from pipeline.disagreement import cluster_pairs, disagreement_stats
 from pipeline.findings import build_findings
+from pipeline.grounding import ground_speaker
 from pipeline.report import render_markdown
 
 
@@ -46,25 +47,43 @@ class PipelineResult:
 
 
 def accounts_to_claims(accounts: Sequence[dict[str, str]], event: str = "custom",
-                       min_tokens: int = 3) -> list[Claim]:
+                       min_tokens: int = 3, cfg: dict | None = None) -> list[Claim]:
     """Split free-text accounts into sentence-level claims.
 
     ``accounts`` is a list of ``{"account_id": ..., "text": ...}``; every sentence of an
-    account becomes one ``Claim`` attributed to that account.
+    account becomes one ``Claim`` attributed to that account. ``cfg`` (optional) supplies
+    the text-layer settings in ``data`` and ``nli``.
     """
+    data_cfg = (cfg or {}).get("data", {})
+    nli_cfg = (cfg or {}).get("nli", {})
+    split_mode = data_cfg.get("sentence_splitter", "abbrev")
+    max_words = data_cfg.get("max_claim_words")
+    ground = bool(nli_cfg.get("ground_speaker", False))
     claims: list[Claim] = []
     for a_idx, account in enumerate(accounts):
         account_id = str(account.get("account_id") or f"account_{a_idx + 1}")
-        for s_idx, sentence in enumerate(split_sentences(account.get("text", ""))):
-            text = clean_text(sentence)
+        pieces = [(s_idx, sentence, clause)
+                  for s_idx, sentence in enumerate(split_sentences(account.get("text", ""), split_mode))
+                  for clause in split_long_claim(sentence, max_words)]
+        for c_idx, (s_idx, sentence, clause) in enumerate(pieces):
+            text = clean_text(clause)
             if n_tokens(text) < min_tokens:
                 continue
+            metadata = {"is_source": True, "sentence_index": s_idx, "raw_text": sentence}
+            if clause != sentence:
+                metadata["clause_of_sentence"] = True
+            if ground:
+                metadata["nli_text"] = ground_speaker(text, account_id)
             claims.append(Claim(
-                claim_id=f"{event}:{account_id}:{s_idx}", event=event, thread_id=account_id,
-                account_id=account_id, text=text,
-                metadata={"is_source": True, "sentence_index": s_idx, "raw_text": sentence},
+                claim_id=f"{event}:{account_id}:{c_idx}", event=event, thread_id=account_id,
+                account_id=account_id, text=text, metadata=metadata,
             ))
     return claims
+
+
+def nli_text(claim: Claim) -> str:
+    """The text the NLI model sees: speaker-grounded when available, else the claim text."""
+    return claim.metadata.get("nli_text") or claim.text
 
 
 def read_accounts_file(path: str | Path) -> list[dict[str, str]]:
@@ -160,7 +179,8 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
         print(f"[pipeline] {name or 'event'}: {n} claims, {len(cluster_ids)} clusters "
               f"({int((labels < 0).sum())} unclustered), {len(pairs)} pairs to score "
               f"(all-pairs would be {n * (n - 1) // 2})", flush=True)
-    probs = scorer.score_pairs([(texts[i], texts[j]) for i, j in pairs])
+    nli_texts = [nli_text(c) for c in claims]
+    probs = scorer.score_pairs([(nli_texts[i], nli_texts[j]) for i, j in pairs])
 
     terms = top_terms_per_cluster(texts, labels, cfg["clustering"]["label_top_terms"])
     central = central_claim_per_cluster(emb, labels) if claims else {}
@@ -206,6 +226,8 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
             "min_contradicting_pairs": dis["min_contradicting_pairs"],
             "max_pairs_per_cluster": dis["max_pairs_per_cluster"],
             "nli_aggregation": cfg["nli"]["aggregation"],
+            "nli_max_length": cfg["nli"].get("max_length"),
+            "speaker_grounding": any("nli_text" in c.metadata for c in claims),
             "seed": cfg["seed"],
         },
         "summary": {
@@ -266,7 +288,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         name = args.name or args.event
     else:
         claims = accounts_to_claims(read_accounts_file(args.input),
-                                    event=args.name or Path(args.input).stem)
+                                    event=args.name or Path(args.input).stem, cfg=cfg)
         name = args.name or Path(args.input).stem
         small_input_overrides(cfg, len(claims))
 

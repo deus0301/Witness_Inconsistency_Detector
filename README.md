@@ -99,6 +99,8 @@ every threshold are in [`configs/default.yaml`](configs/default.yaml). `data/raw
 | No downloads at all (mock models) | `python run_all.py --mock --sample` |
 | Only some stages | `python run_all.py --stages nli rte` (also `clustering`, `pipeline`, `reports`) |
 | Regenerate the results tables | `python -m evaluation.make_tables` |
+| Story-group CIs, pair baselines, per-pair predictions (from caches) | `python -m evaluation.validity` (also the `validity` stage) |
+| Witness-style probes of the text layer | `python -m evaluation.witness_probes --tag <name>` (`--set nli.ground_speaker=false` etc.) |
 | Fine-tune NLI, leave-one-event-out (about 10 minutes per event on GPU) | `python -m training.finetune_nli` |
 | Fine-tune the all-events demo model (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
 | Use the fine-tuned model | `python -m pipeline.run --input examples/witness_accounts.txt --finetuned`, or `finetune.use_finetuned: true`, or the checkbox in the app (direction rule `finetune.aggregation_override`, default `min_contradiction`) |
@@ -142,27 +144,44 @@ Four events (Ottawa shooting, Sydney siege, Charlie Hebdo, Germanwings crash). N
 | Check | Result |
 |---|---|
 | NLI scorer, MultiNLI validation matched / mismatched | accuracy 0.9001 / 0.9004 |
-| NLI scorer on 5,413 labelled PHEME pairs, contradiction flags (base rate 25.5%) | precision 0.619, recall 0.329 |
+| Independent units in those pairs (labels follow the rumour stories) | 85 story groups, 21 of them contradictions (1 in Germanwings) |
+| NLI scorer on 5,413 labelled PHEME pairs, contradiction flags (base rate 25.5%) | precision 0.619, recall 0.329, F1 0.430 [0.196, 0.630] |
+| Trivial baselines on the same pairs | flag everything: F1 0.406; negation/number/antonym cues: F1 0.476 |
 | Same pairs through the pipeline (agglomerative clusters, then NLI) | precision 0.672, recall 0.132 |
 | Labelled "unknown" pairs wrongly flagged, NLI alone vs pipeline | 9.4% vs 1.2% |
 | Labelled contradictions that land in the same cluster: agglomerative / HDBSCAN | 55.1% / 9.9% |
 | Pairs sent to NLI, in-cluster vs all pairs (same 1,283 claims) | 38,526 vs 207,385 (82% fewer) |
 | Cluster-level detection vs veracity proxy (102 clusters, 28 positive) | precision 0.434, recall 0.821, F1 0.568 |
-| Baselines on the same clusters | flag everything: F1 0.431; random: F1 0.357 |
+| Baselines on the same clusters | flag everything: F1 0.431; random: F1 0.357; flag the largest clusters: F1 0.519 |
 | Manual audit of 40 random flagged pairs (earlier HDBSCAN configuration) | 27.5% genuine, 15% time-driven, 57.5% false alarms |
 
 What this means:
 
+Intervals in brackets are 95% story-group bootstrap intervals (`python -m evaluation.validity`):
+pairs inside one rumour-story group share a label, so resampling single pairs would give intervals
+about 9 times too narrow.
+
 - When the system flags a pair, it is a labelled contradiction about two times in three. It finds
-  only a minority of the contradictions that exist.
-- Clustering is a precision filter and a cost saver. It cannot add recall, and it loses the
-  contradictions it splits apart.
+  only a minority of the contradictions that exist. At the default threshold its F1 cannot be told
+  apart from flagging every pair (+0.02 [-0.22, +0.25]) or from three keyword cues.
+- Clustering is a cost saver (82% fewer pairs). Its precision gain is not significant
+  (+0.05 [-0.11, +0.29]) and it loses recall (-0.20 [-0.40, -0.05]).
 - The clustering that best reproduces the annotated rumour stories (HDBSCAN) is the worst for this
   task, because contradicting tweets belong to different stories. The default is agglomerative.
-- Fine-tuning the NLI model on the labelled pairs, tested on held-out events, doubles
-  contradiction recall (0.31 to 0.64, precision 0.58 to 0.63) and triples pipeline recall (0.12
-  to 0.36). It is slightly worse on one event of four, and the labels are story-level, so it may
-  partly learn story cues. Details in section 6.10 of the report.
+- Fine-tuning the NLI model on the labelled pairs, tested on held-out events and compared with the
+  zero-shot model given the same validation-tuned threshold: pooled contradiction F1 0.492 to 0.615,
+  difference +0.12 [-0.08, +0.35]. It improves F1 on 3 of 4 events, is level on Ottawa, and the
+  Germanwings gain rests on one contradiction story. A "story oracle" that only reads the label
+  structure (two different stories, similar wording) scores F1 0.631, so the gain may be partly
+  story learning. Details in sections 6.10 and 6.11 of the report.
+- At cluster level, ranking clusters by size alone (AP 0.68) beats ranking by contradiction score
+  (0.64), and the detector's F1 margin over "flag the largest clusters" is +0.05 [-0.02, +0.13].
+  The cluster-level proxy result is largely a cluster-size effect.
+- Pasted witness accounts pass through a text layer before NLI: an abbreviation-aware sentence
+  splitter, clause splitting for sentences over 40 words (a pair must fit the 128-token window), and
+  speaker grounding ("I was inside" becomes "Witness A was inside"). On 23 witness-style probe checks
+  (`python -m evaluation.witness_probes`) this raises the pass count from 13 to 21 (zero-shot) and
+  from 14 to 22 (fine-tuned). The probes show failure modes, not error rates.
 
 ![Flag rates](reports/figures/rte_flag_rates.png)
 ![Heatmap](reports/figures/eval_heatmap_germanwings-crash.png)
@@ -195,7 +214,8 @@ tell you.
 
 ## Known limitations
 
-Recall is low (the pipeline finds about 13% of labelled contradictions). The labelled pairs are
+Recall is low (the pipeline finds about 13% of labelled contradictions). The labelled pairs hold
+only 21 independent contradiction stories, so every interval is wide. The labels are
 story-level, and the default clustering was chosen on them without a held-out split. The system is
 English-only, uses source tweets only, has no notion of time (an update looks like a dispute), and
 samples at most 400 pairs per cluster. A flagged pair is a prompt for a person to look, not a
