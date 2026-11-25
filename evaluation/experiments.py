@@ -174,11 +174,16 @@ def pipeline_on_labelled_pairs(cfg: dict, pairs_by_event: dict[str, list], probs
     is_contra = truth == "contradiction"
     same_cluster = np.zeros(len(all_pairs), dtype=bool)
     mapped = np.zeros(len(all_pairs), dtype=bool)
+    clustering: dict[str, Any] = {}
     offset = 0
     for e in events:
         claims = load_event_from_config(nodedup, e, rumours_only=True)
         index = {c.claim_id.split(":", 1)[1]: i for i, c in enumerate(claims)}
-        labels = cluster_from_config(embedder.encode([c.text for c in claims]), cfg, algo)
+        emb = embedder.encode([c.text for c in claims])
+        labels = cluster_from_config(emb, cfg, algo)
+        stories = [c.metadata.get("rumour_category") for c in claims]
+        clustering[e] = {"n_reference_stories": len({s for s in stories if s is not None}),
+                         **intrinsic_metrics(emb, labels), **extrinsic_metrics(labels, stories)}
         for k, pair in enumerate(pairs_by_event[e]):
             i, j = index.get(pair.tweet_a), index.get(pair.tweet_b)
             if i is None or j is None:
@@ -193,6 +198,7 @@ def pipeline_on_labelled_pairs(cfg: dict, pairs_by_event: dict[str, list], probs
     lab = truth[m]
     return {
         "n_pairs_mapped": int(m.sum()),
+        "clustering_metrics": clustering,
         "same_cluster_rate_by_label": {l: float(same_cluster[m][lab == l].mean()) for l in NLI_LABELS},
         "flag_rate_by_label_nli_only": {l: float(nli_flag[lab == l].mean()) for l in NLI_LABELS},
         "flag_rate_by_label_pipeline": {l: float(pipe_flag[lab == l].mean()) for l in NLI_LABELS},

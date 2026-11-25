@@ -90,7 +90,12 @@ finetune:                          # NLI fine-tuning on PHEME RTE (training/fine
   imbalance: weighted_loss         # weighted_loss (inverse frequency) | sampler (WeightedRandomSampler) | none
   mnli_replay: 3000                # random MultiNLI examples mixed into training; 0 disables
   mnli_split: train                # train | dev_matched | dev_mismatched (local jsonl, never downloaded)
-  val_fraction: 0.1                # of the TRAIN split, stratified by label, grouped by text pair
+  validation: held_out_event       # held_out_event | pairs (see below)
+  # held_out_event: validate on one whole training event (the next event after the held-out one
+  #   in `folds`, cyclically) and train on the other two. Tweets and rumour stories repeat
+  #   heavily inside an event, so a random pair split leaks and saturates (val AP ~1.0).
+  # pairs: val_fraction of the train pairs, stratified by label, grouped by text pair.
+  val_fraction: 0.1
   early_stopping_metric: contradiction_ap   # contradiction_ap | contradiction_f1 (on validation)
   early_stopping_patience: 1       # epochs without improvement before stopping
   operating_point:

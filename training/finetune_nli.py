@@ -7,8 +7,10 @@
 For each held-out event:
 
 1. Load the train and test split files, drop train pairs that also appear in the test file.
-2. Hold out ``finetune.val_fraction`` of the TRAIN pairs as validation, stratified by label and
-   grouped by the unordered text pair, so (A,B) and (B,A) never straddle the split.
+2. Choose a validation set from the TRAIN events only. Default (``finetune.validation:
+   held_out_event``): one whole training event. Alternative (``pairs``): ``val_fraction`` of
+   the train pairs, stratified by label and grouped by the unordered text pair. The pair split
+   leaks, because each tweet appears in about 18 pairs and labels follow rumour stories.
 3. Train on both directions of every remaining pair (same label), plus an optional MultiNLI
    replay sample, with class weighting or a weighted sampler. Early stopping on validation.
 4. Choose the direction rule and threshold on validation only, in two modes (best F1;
@@ -355,6 +357,30 @@ def validation_metrics(truth: Sequence[str], fwd: np.ndarray, back: np.ndarray,
 
 
 # --------------------------------------------------------------------------- folds
+def validation_event(cfg: dict, held_out: str) -> str:
+    """The event after ``held_out`` in ``finetune.folds`` (cyclic), so each event validates once."""
+    folds = list(cfg["finetune"]["folds"])
+    order = folds if held_out in folds else [held_out, *folds]
+    return order[(order.index(held_out) + 1) % len(order)]
+
+
+def validation_split(cfg: dict, held_out: str,
+                     train_all: list[RTEPair]) -> tuple[list[RTEPair], list[RTEPair], str | None]:
+    """(train, validation, validation event or None) from the TRAIN events of a fold."""
+    ft = cfg["finetune"]
+    if ft["validation"] == "held_out_event":
+        event = validation_event(cfg, held_out)
+        train = [p for p in train_all if p.event != event]
+        val = [p for p in train_all if p.event == event]
+        if not train or not val:
+            raise ValueError(f"validation event {event} leaves an empty train or validation set")
+        return train, val, event
+    if ft["validation"] == "pairs":
+        train, val = grouped_stratified_split(train_all, ft["val_fraction"], cfg["seed"])
+        return train, val, None
+    raise ValueError(f"finetune.validation must be held_out_event | pairs, got {ft['validation']!r}")
+
+
 def checkpoint_name(cfg: dict, held_out: str | None) -> str:
     base = cfg["models"]["nli"].split("/")[-1]
     return f"{base}-pheme-leave-{SPLIT_KEYS[held_out]}" if held_out else cfg["finetune"]["checkpoint"]
@@ -385,12 +411,12 @@ def run_fold(cfg: dict, held_out: str, pipeline_eval: bool = True) -> dict[str, 
         f"{len(test)} pairs; leakage removed from train: {leakage}")
     train_all = cap(train_all, ft.get("max_train_pairs"), seed)
     test = cap(test, ft.get("max_test_pairs"), seed)
-    train_pairs, val_pairs = grouped_stratified_split(train_all, ft["val_fraction"], seed)
+    train_pairs, val_pairs, val_event = validation_split(cfg, held_out, train_all)
     assert not ({text_key(p) for p in train_pairs} & {text_key(p) for p in val_pairs})
     assert not ({text_key(p) for p in train_pairs + val_pairs} & {text_key(p) for p in test})
     val_truth, test_truth = [p.label for p in val_pairs], [p.label for p in test]
     log(f"train {len(train_pairs)} / validation {len(val_pairs)} pairs "
-        f"(val labels {dict(Counter(val_truth))})")
+        f"(validation: {val_event or 'pair split'}; val labels {dict(Counter(val_truth))})")
 
     # zero-shot: default point and its own val-tuned point
     zcfg = zero_shot_cfg(cfg)
@@ -411,6 +437,7 @@ def run_fold(cfg: dict, held_out: str, pipeline_eval: bool = True) -> dict[str, 
     meta = {"run_id": run_id, "base_model": cfg["models"]["nli"], "held_out_event": held_out,
             "train_events": sorted({p.event for p in train_all}),
             "n_train_pairs": len(train_pairs), "n_validation_pairs": len(val_pairs),
+            "validation": ft["validation"], "validation_event": val_event,
             "n_test_pairs": len(test), "n_training_examples": len(examples),
             "leakage_removed": leakage, "hyperparameters": {k: v for k, v in ft.items() if k not in (
                 "use_finetuned", "checkpoint", "operating_mode", "folds", "active")},
@@ -458,6 +485,8 @@ def run_fold(cfg: dict, held_out: str, pipeline_eval: bool = True) -> dict[str, 
     return {"held_out_event": held_out, "split_key": SPLIT_KEYS[held_out],
             "checkpoint": name, "run_id": run_id,
             "n_train_pairs": len(train_pairs), "n_validation_pairs": len(val_pairs),
+            "validation_mode": ft["validation"], "validation_event": val_event,
+            "train_events": sorted({p.event for p in train_pairs}),
             "n_test_pairs": len(test), "n_training_examples": len(examples),
             "test_label_counts": dict(Counter(test_truth)),
             "validation_label_counts": dict(Counter(val_truth)),
@@ -485,6 +514,12 @@ def pipeline_view(cfg: dict, held_out: str, test: list[RTEPair],
         r = out[key]["pipeline"]
         log(f"pipeline ({algo}) {key:>34}: flagged={r['n_flagged']} P={r['precision']:.3f} "
             f"R={r['recall']:.3f} F1={r['f1']:.3f}")
+    # clustering does not depend on the NLI model: one set of clustering metrics per fold
+    out["clustering_metrics"] = out[next(iter(settings))]["clustering_metrics"][held_out]
+    m = out["clustering_metrics"]
+    log(f"clustering ({algo}) on {held_out}: k={m['n_clusters']} silhouette={m['silhouette']} "
+        f"DB={m['davies_bouldin']} ARI={m['ari']:.3f} NMI={m['nmi']:.3f} "
+        f"V={m['v_measure']:.3f} FM={m['fowlkes_mallows']:.3f}")
     del embedder
     free_gpu()
     return out
@@ -528,6 +563,13 @@ def mean_over_folds(folds: dict[str, dict[str, Any]]) -> dict[str, Any]:
             out["pipeline"][setting] = {m: float(np.mean([f["pipeline_on_labelled_pairs"][setting]["pipeline"][m]
                                                           for f in folds.values()]))
                                         for m in ("precision", "recall", "f1")}
+    cms = [f["pipeline_on_labelled_pairs"].get("clustering_metrics") for f in folds.values()
+           if f.get("pipeline_on_labelled_pairs")]
+    if cms and all(cms):
+        keys = ("silhouette", "davies_bouldin", "ari", "nmi", "homogeneity", "completeness",
+                "v_measure", "fowlkes_mallows")
+        out["clustering_metrics"] = {k: float(np.mean([m[k] for m in cms])) for k in keys
+                                     if all(m.get(k) is not None for m in cms)}
     return out
 
 

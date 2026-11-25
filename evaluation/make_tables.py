@@ -43,6 +43,96 @@ def _short(model: str) -> str:
     return model.split("/")[-1].replace("all-", "").replace("-L6-v2", "").replace("-base-v2", "")
 
 
+FT_SETTINGS = (
+    ("zero_shot_default", "zero-shot, default (min, 0.9)"),
+    ("zero_shot_val_best_f1", "zero-shot, val-tuned best F1"),
+    ("zero_shot_val_recall_at_precision", "zero-shot, val-tuned recall at P>=min"),
+    ("finetuned_best_f1", "fine-tuned, val-tuned best F1"),
+    ("finetuned_recall_at_precision", "fine-tuned, val-tuned recall at P>=min"),
+)
+
+
+def finetune_tables(ft: dict[str, Any]) -> list[str]:
+    """Leave-one-event-out fine-tuning: per fold, mean over folds, pipeline view."""
+    lines = ["## NLI fine-tuned on PHEME RTE (leave one event out)", "",
+             "Each row is scored on the held-out event only. Direction rule and threshold were "
+             "chosen on a validation split of the training events; the held-out event was not used "
+             "for training, early stopping or choosing the operating point.", ""]
+    header = ["Setting", "Rule", "Threshold", "3-class acc.", "Macro-F1", "Contr. P", "Contr. R",
+              "Contr. F1", "Avg. precision", "Flag rate: entailment / unknown / contradiction"]
+    for event, fold in ft["folds"].items():
+        counts = fold["test_label_counts"]
+        lines += [f"### Held out: {event}", "",
+                  f"Test pairs {fold['n_test_pairs']:,} (entailment / unknown / contradiction "
+                  f"{counts.get('entailment', 0)} / {counts.get('neutral', 0)} / {counts.get('contradiction', 0)}); "
+                  f"train {fold['n_train_pairs']:,}, validation {fold['n_validation_pairs']:,} pairs "
+                  f"({'event ' + fold['validation_event'] if fold.get('validation_event') else 'pair split'}); "
+                  f"best epoch {fold['training']['best_epoch']}; leakage removed from train: "
+                  f"{fold['leakage_removed']['removed_total']}.", ""]
+        rows = []
+        for key, label in FT_SETTINGS:
+            r = fold["test"][key]
+            c = r["contradiction_at_threshold"]
+            fr = r["flag_rate_by_label"]
+            rows.append([label, r["aggregation"], f"{c['threshold']:.2f}", r["accuracy"], r["macro_f1"],
+                         c["precision"], c["recall"], c["f1"], r["contradiction_average_precision"],
+                         f"{_pct(fr['entailment'])} / {_pct(fr['neutral'])} / {_pct(fr['contradiction'])}"])
+        lines += _table(header, rows)
+    mean = ft.get("mean_over_folds") or {}
+    if mean.get("test"):
+        lines += [f"### Mean over {mean['n_folds']} folds (unweighted)", ""]
+        rows = []
+        for key, label in FT_SETTINGS:
+            m = mean["test"][key]
+            rows.append([label, m["accuracy"], m["macro_f1"], m["contradiction_at_threshold.precision"],
+                         m["contradiction_at_threshold.recall"], m["contradiction_at_threshold.f1"],
+                         m["contradiction_average_precision"],
+                         f"{_pct(m['flag_rate_by_label.entailment'])} / {_pct(m['flag_rate_by_label.neutral'])} / "
+                         f"{_pct(m['flag_rate_by_label.contradiction'])}"])
+        lines += _table(["Setting", "3-class acc.", "Macro-F1", "Contr. P", "Contr. R", "Contr. F1",
+                         "Avg. precision", "Flag rate: entailment / unknown / contradiction"], rows)
+    if all(f.get("pipeline_on_labelled_pairs") for f in ft["folds"].values()):
+        algo = next(iter(ft["folds"].values()))["pipeline_on_labelled_pairs"]["algorithm"]
+        lines += [f"### Pipeline on the held-out labelled pairs ({algo} clusters, then NLI)", "",
+                  "A pair is flagged only if both tweets share a cluster and the NLI score reaches the "
+                  "setting's threshold (as in the labelled-pair pipeline table above).", ""]
+        rows = []
+        for event, fold in ft["folds"].items():
+            pv = fold["pipeline_on_labelled_pairs"]
+            for key, label in FT_SETTINGS:
+                r = pv[key]
+                rows.append([event, label, r["n_pairs_mapped"],
+                             _pct(r["same_cluster_rate_by_label"]["contradiction"]),
+                             r["pipeline"]["n_flagged"], r["pipeline"]["precision"], r["pipeline"]["recall"],
+                             r["pipeline"]["f1"], r["nli_only"]["recall"]])
+        lines += _table(["Held out", "Setting", "Mapped pairs", "Contradictions in same cluster", "Flagged",
+                         "Pipeline P", "Pipeline R", "Pipeline F1", "NLI-only R"], rows)
+        cm = {e: f["pipeline_on_labelled_pairs"].get("clustering_metrics") for e, f in ft["folds"].items()}
+        if all(cm.values()):
+            lines += [f"Clustering quality on each held-out event ({algo}, rumour source tweets, reference = "
+                      "annotated rumour story). These do not depend on the NLI model.", ""]
+            lines += _table(["Held out", "Claims", "Clusters", "Reference stories", "Silhouette (cosine)",
+                             "Davies-Bouldin", "ARI", "NMI", "Homogeneity", "Completeness", "V-measure",
+                             "Fowlkes-Mallows"],
+                            [[e, m["n_claims"], m["n_clusters"], m["n_reference_stories"], m["silhouette"],
+                              m["davies_bouldin"], m["ari"], m["nmi"], m["homogeneity"], m["completeness"],
+                              m["v_measure"], m["fowlkes_mallows"]] for e, m in cm.items()])
+        if mean.get("pipeline"):
+            lines += _table(["Mean over folds", "Pipeline P", "Pipeline R", "Pipeline F1"],
+                            [[label, mean["pipeline"][k]["precision"], mean["pipeline"][k]["recall"],
+                              mean["pipeline"][k]["f1"]] for k, label in FT_SETTINGS])
+    allm = ft.get("all_events_model")
+    if allm:
+        modes = allm["operating_point"]["modes"]
+        lines += ["### All-events demo model", "",
+                  f"`{allm['checkpoint']}`: {allm['n_train_pairs']:,} pairs, {allm['epochs']} epochs (median "
+                  f"fold best epoch). Operating points (median of fold choices): best F1 "
+                  f"`{modes['best_f1']['aggregation']}` at {modes['best_f1']['threshold']:.2f}; recall at "
+                  f"precision `{modes['recall_at_precision']['aggregation']}` at "
+                  f"{modes['recall_at_precision']['threshold']:.2f}. It has no held-out test set.", ""]
+    return lines
+
+
 def build(res: Path) -> str:
     def read(name: str) -> Any | None:
         path = res / name
@@ -176,6 +266,10 @@ def build(res: Path) -> str:
              f"{c['debunk_co_clustered']} of {c['n_debunk_pairs']}"],
             ["Debunk pairs flagged", a["debunk_flagged"], c["debunk_flagged"]],
         ])
+
+    ft = read("finetune_results.json")
+    if ft and ft.get("folds"):
+        lines += finetune_tables(ft)
 
     summaries = read("event_report_summaries.json")
     if summaries:

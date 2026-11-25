@@ -237,3 +237,44 @@ def test_smoke_train_tiny_model(cfg, tmp_path):
     assert fwd.shape == (len(val), 3) and np.allclose(fwd.sum(axis=1), 1, atol=1e-4)
     point = choose_operating_point([p.label for p in val], fwd, back, cfg)
     assert set(point["modes"]) == {"best_f1", "recall_at_precision"}
+
+
+# --------------------------------------------------------------------------- validation by event
+def test_validation_event_rotates_and_never_uses_test(cfg):
+    from training.finetune_nli import validation_event
+
+    folds = cfg["finetune"]["folds"]
+    chosen = [validation_event(cfg, e) for e in folds]
+    assert sorted(chosen) == sorted(folds)              # every event validates exactly once
+    assert all(v != e for v, e in zip(chosen, folds))   # never the held-out event
+
+
+def test_validation_split_by_event(cfg):
+    import dataclasses
+
+    from training.finetune_nli import validation_event, validation_split
+
+    held_out = cfg["finetune"]["folds"][0]
+    others = [e for e in cfg["finetune"]["folds"] if e != held_out]
+    pairs = [dataclasses.replace(_pair(i, lab), event=others[i % 3])
+             for i, lab in enumerate(["entailment", "neutral", "contradiction"] * 10)]
+    cfg["finetune"]["validation"] = "held_out_event"
+    train, val, event = validation_split(cfg, held_out, pairs)
+    assert event == validation_event(cfg, held_out)
+    assert {p.event for p in val} == {event} and event not in {p.event for p in train}
+    assert len(train) + len(val) == len(pairs)
+    cfg["finetune"]["validation"] = "pairs"
+    train, val, event = validation_split(cfg, held_out, pairs)
+    assert event is None and len(train) + len(val) == len(pairs)
+    cfg["finetune"]["validation"] = "bogus"
+    with pytest.raises(ValueError):
+        validation_split(cfg, held_out, pairs)
+
+
+def test_extrinsic_metrics_include_v_measure_and_fowlkes_mallows():
+    from clustering.evaluate import extrinsic_metrics
+
+    m = extrinsic_metrics(np.array([0, 0, 1, 1, -1]), ["a", "a", "b", "b", "c"])
+    assert m["v_measure"] == pytest.approx(1.0) and m["fowlkes_mallows"] == pytest.approx(1.0)
+    m = extrinsic_metrics(np.array([0, 1]), ["a", None])
+    assert m["v_measure"] is None and m["fowlkes_mallows"] is None
