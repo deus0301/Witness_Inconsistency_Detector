@@ -99,6 +99,9 @@ every threshold are in [`configs/default.yaml`](configs/default.yaml). `data/raw
 | No downloads at all (mock models) | `python run_all.py --mock --sample` |
 | Only some stages | `python run_all.py --stages nli rte` (also `clustering`, `pipeline`, `reports`) |
 | Regenerate the results tables | `python -m evaluation.make_tables` |
+| Fine-tune NLI, leave-one-event-out (about 10 minutes per event on GPU) | `python -m training.finetune_nli` |
+| Fine-tune the all-events demo model (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
+| Use the fine-tuned model | `python -m pipeline.run --input examples/witness_accounts.txt --finetuned`, or `finetune.use_finetuned: true`, or the checkbox in the app |
 | One PHEME event | `python -m pipeline.run --event germanwings-crash --rumours-only` |
 | Your own accounts | `python -m pipeline.run --input examples/witness_accounts.txt` |
 | Demo | `python -m streamlit run app/streamlit_app.py` |
@@ -156,8 +159,10 @@ What this means:
   contradictions it splits apart.
 - The clustering that best reproduces the annotated rumour stories (HDBSCAN) is the worst for this
   task, because contradicting tweets belong to different stories. The default is agglomerative.
-- The off-the-shelf NLI model is the main limit. Fine-tuning it on the labelled pairs is the
-  obvious next step and has not been done.
+- Fine-tuning the NLI model on the labelled pairs, tested on held-out events, doubles
+  contradiction recall (0.31 to 0.64, precision 0.58 to 0.63) and triples pipeline recall (0.12
+  to 0.36). It is slightly worse on one event of four, and the labels are story-level, so it may
+  partly learn story cues. Details in section 6.10 of the report.
 
 ![Flag rates](reports/figures/rte_flag_rates.png)
 ![Heatmap](reports/figures/eval_heatmap_germanwings-crash.png)
@@ -176,6 +181,7 @@ tell you.
 ├── clustering/    embeddings, clustering algorithms, cluster labels, metrics
 ├── pipeline/      config, disagreement score, findings summary, end-to-end run, report rendering
 ├── evaluation/    experiments, baselines, ablations, plots
+├── training/      NLI fine-tuning on PHEME RTE (leave one event out)
 ├── notebooks/     01_eda.ipynb
 ├── app/           Streamlit demo
 ├── examples/      sample witness accounts
