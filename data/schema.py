@@ -1,6 +1,6 @@
 """Shared data schema. Every downstream module consumes ONLY ``Claim`` records.
 
-See ``data/SCHEMA.md`` for the field-by-field documentation.
+The fields are documented on the ``Claim`` dataclass below.
 """
 from __future__ import annotations
 

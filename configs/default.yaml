@@ -7,13 +7,13 @@ paths:
   pheme_v2: data/raw/pheme_v2/all-rnr-annotated-threads   # 9 events, veracity annotations
   pheme_v1: data/raw/pheme_v1/pheme-rnr-dataset            # 5 events, fallback (no veracity)
   multinli: data/raw/multinli_1.0/multinli_1.0
-  pheme_rte: pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits   # labelled tweet pairs
-  pheme_rte_splits: pheme_rte_datasets_2016/pheme_rte_datasets_2016/test_training_splits  # leave-one-event-out
+  pheme_rte: data/raw/pheme_rte_datasets_2016/per_event_splits   # labelled tweet pairs
+  pheme_rte_splits: data/raw/pheme_rte_datasets_2016/test_training_splits  # leave-one-event-out
   finetuned_dir: models/finetuned   # fine-tuned NLI checkpoints (gitignored, under models/)
   models_dir: models          # optional local snapshots: models/<name with / replaced by __>
   cache_dir: outputs/cache    # embedding + NLI score caches
   output_dir: outputs
-  figures_dir: reports/figures
+  figures_dir: outputs/figures
 
 events:
   main: [ottawashooting, sydneysiege, charliehebdo, germanwings-crash]
