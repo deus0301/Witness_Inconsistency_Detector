@@ -1,0 +1,611 @@
+{
+  "nli_model": "D:\\Projects\\Witness_Inconsistency_Detector\\models\\finetuned\\nli-deberta-v3-base-pheme-all",
+  "settings": {
+    "nli": {
+      "batch_size": 64,
+      "max_length": 128,
+      "aggregation": "min_contradiction",
+      "fp16": true,
+      "ground_speaker": true
+    },
+    "threshold": 0.5,
+    "data": {
+      "sentence_splitter": "abbrev",
+      "max_claim_words": 40
+    }
+  },
+  "n_truncated_inputs": 0,
+  "summary": {
+    "passed": 11,
+    "checks": 20,
+    "by_type": {
+      "conflict": {
+        "passed": 7,
+        "checks": 9
+      },
+      "compatible": {
+        "passed": 4,
+        "checks": 10
+      },
+      "within_account": {
+        "passed": 0,
+        "checks": 1
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "direction_left_right",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The car turned left onto Mill Road.",
+          "nli_text": "The car turned left onto Mill Road.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The car turned right onto Mill Road.",
+          "nli_text": "The car turned right onto Mill Road.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'turned left' vs 'turned right'",
+          "p_contradiction": 0.9999516010284424,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "clothing_colour",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The man who ran off wore a red jacket.",
+          "nli_text": "The man who ran off wore a red jacket.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The man who ran off wore a blue jacket.",
+          "nli_text": "The man who ran off wore a blue jacket.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'red jacket' vs 'blue jacket'",
+          "p_contradiction": 0.9999781847000122,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "event_order",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The car hit the cyclist before the bus arrived.",
+          "nli_text": "The car hit the cyclist before the bus arrived.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The bus arrived before the car hit the cyclist.",
+          "nli_text": "The bus arrived before the car hit the cyclist.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'hit the cyclist before' vs 'arrived before'",
+          "p_contradiction": 0.9999548196792603,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "weather",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "It was raining heavily at the time.",
+          "nli_text": "It was raining heavily at the time.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The road was completely dry at the time.",
+          "nli_text": "The road was completely dry at the time.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'raining heavily' vs 'completely dry'",
+          "p_contradiction": 0.9999159574508667,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "head_count",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "Two men got out of the car.",
+          "nli_text": "Two men got out of the car.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "Only one person was in the car.",
+          "nli_text": "Only one person was in the car.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'Two men got out' vs 'Only one person'",
+          "p_contradiction": 0.11596811562776566,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "time_of_day",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "It happened at about 9:15 in the morning.",
+          "nli_text": "It happened at about 9:15 in the morning.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "It happened late in the evening.",
+          "nli_text": "It happened late in the evening.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: '9:15 in the morning' vs 'late in the evening'",
+          "p_contradiction": 0.9997877478599548,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "hedged_but_conflicting",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I think the car was red.",
+          "nli_text": "Witness A think the car was red.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The car was blue.",
+          "nli_text": "The car was blue.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'car was red' vs 'car was blue'",
+          "p_contradiction": 0.9998946189880371,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "coreference_across_sentences",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "A man in a grey hoodie ran towards the station.",
+          "nli_text": "A man in a grey hoodie ran towards the station.",
+          "cluster": -1
+        },
+        {
+          "account": "Witness A",
+          "text": "He was carrying a black bag.",
+          "nli_text": "He was carrying a black bag.",
+          "cluster": -1
+        },
+        {
+          "account": "Witness B",
+          "text": "The man in the grey hoodie had nothing in his hands.",
+          "nli_text": "The man in the grey hoodie had nothing in his hands.",
+          "cluster": -1
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'carrying a black bag' vs 'nothing in his hands'",
+          "p_contradiction": null,
+          "compared": false,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "conflict_clustered_apart",
+      "type": "conflict",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The driver stayed at the scene.",
+          "nli_text": "The driver stayed at the scene.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "He was gone before anyone could get his number plate.",
+          "nli_text": "He was gone before anyone could get his number plate.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'stayed at the scene' vs 'was gone before'",
+          "p_contradiction": 0.999906063079834,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "paraphrase",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The van was white.",
+          "nli_text": "The van was white.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "It was a white van.",
+          "nli_text": "It was a white van.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'van was white' vs 'white van'",
+          "p_contradiction": 2.9067492505419068e-05,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "approximate_times",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "It happened at about 9:15 a.m.",
+          "nli_text": "It happened at about 9:15 a.m.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "It happened just after 9 a.m.",
+          "nli_text": "It happened just after 9 a.m.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: '9:15' vs 'just after 9'",
+          "p_contradiction": 0.003012991277500987,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "approximate_counts",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "About 20 people were waiting at the stop.",
+          "nli_text": "About 20 people were waiting at the stop.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "Around 25 people were waiting at the stop.",
+          "nli_text": "Around 25 people were waiting at the stop.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'About 20' vs 'Around 25'",
+          "p_contradiction": 0.9951798915863037,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "unit_conversion",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The car was doing about 30 mph.",
+          "nli_text": "The car was doing about 30 mph.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The car was doing about 50 km/h.",
+          "nli_text": "The car was doing about 50 km/h.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: '30 mph' vs '50 km/h'",
+          "p_contradiction": 0.9924934506416321,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "non_observation",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The man had a gun in his right hand.",
+          "nli_text": "The man had a gun in his right hand.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "I didn't see a gun.",
+          "nli_text": "Witness B didn't see a gun.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'had a gun' vs \"didn't see a gun\"",
+          "p_contradiction": 0.9996019005775452,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "reported_speech",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The driver told me he had stopped at the crossing.",
+          "nli_text": "The driver told Witness A he had stopped at the crossing.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The driver did not stop at the crossing.",
+          "nli_text": "The driver did not stop at the crossing.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'told me he had stopped' vs 'did not stop'",
+          "p_contradiction": 0.9999055862426758,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "update_over_time",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The man was alive when I got there.",
+          "nli_text": "The man was alive when Witness A got there.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The man was dead when the ambulance arrived.",
+          "nli_text": "The man was dead when the ambulance arrived.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'alive when' vs 'dead when'",
+          "p_contradiction": 0.9999468326568604,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "different_people",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The cyclist was badly injured.",
+          "nli_text": "The cyclist was badly injured.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The pedestrian was not hurt at all.",
+          "nli_text": "The pedestrian was not hurt at all.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'cyclist was badly injured' vs 'pedestrian was not hurt'",
+          "p_contradiction": 0.9991958737373352,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "different_groups_we",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "We were sitting at the window table.",
+          "nli_text": "Witness A's group was sitting at the window table.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "We were standing outside the cafe.",
+          "nli_text": "Witness B's group was standing outside the cafe.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'sitting at the window' vs 'standing outside'",
+          "p_contradiction": 0.01341805700212717,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "more_detail_not_conflict",
+      "type": "compatible",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "A car hit the cyclist.",
+          "nli_text": "A car hit the cyclist.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "A blue hatchback hit the cyclist at the junction.",
+          "nli_text": "A blue hatchback hit the cyclist at the junction.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'A car hit the cyclist' vs 'blue hatchback'",
+          "p_contradiction": 5.180294829187915e-05,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "self_contradiction_one_account",
+      "type": "within_account",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The light was red when the car went through.",
+          "nli_text": "The light was red when the car went through.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "Later on, the light was definitely green when the car went through.",
+          "nli_text": "Later on, the light was definitely green when the car went through.",
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The car went through the junction quickly.",
+          "nli_text": "The car went through the junction quickly.",
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'light was red' vs 'definitely green'",
+          "p_contradiction": null,
+          "compared": false,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    }
+  ],
+  "suite": "extended"
+}

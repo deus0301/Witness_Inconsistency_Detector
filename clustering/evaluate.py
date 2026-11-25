@@ -30,19 +30,21 @@ def intrinsic_metrics(emb: np.ndarray, labels: np.ndarray) -> dict[str, float | 
 
 
 def extrinsic_metrics(labels: np.ndarray, reference: Sequence[str | None]) -> dict[str, float | int | None]:
-    """ARI / NMI / homogeneity / completeness against a reference grouping.
+    """ARI / NMI / homogeneity / completeness / V-measure / Fowlkes-Mallows against a
+    reference grouping.
 
     Only claims with a reference (rumour story) are scored. Noise points count as
     singleton clusters, so leaving everything unclustered is not rewarded.
     """
     from sklearn.metrics import (adjusted_rand_score, completeness_score,
-                                 homogeneity_score, normalized_mutual_info_score)
+                                 fowlkes_mallows_score, homogeneity_score,
+                                 normalized_mutual_info_score, v_measure_score)
 
     labels = np.asarray(labels).copy()
     idx = [i for i, r in enumerate(reference) if r is not None]
     if len(idx) < 2:
-        return {"n_scored": len(idx), "ari": None, "nmi": None,
-                "homogeneity": None, "completeness": None}
+        return {"n_scored": len(idx), "ari": None, "nmi": None, "homogeneity": None,
+                "completeness": None, "v_measure": None, "fowlkes_mallows": None}
     next_id = labels.max() + 1 if labels.size else 0
     for i in np.where(labels < 0)[0]:
         labels[i] = next_id
@@ -55,4 +57,6 @@ def extrinsic_metrics(labels: np.ndarray, reference: Sequence[str | None]) -> di
         "nmi": float(normalized_mutual_info_score(ref, pred)),
         "homogeneity": float(homogeneity_score(ref, pred)),
         "completeness": float(completeness_score(ref, pred)),
+        "v_measure": float(v_measure_score(ref, pred)),
+        "fowlkes_mallows": float(fowlkes_mallows_score(ref, pred)),
     }

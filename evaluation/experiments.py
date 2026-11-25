@@ -34,7 +34,7 @@ from pipeline.config import (REPO_ROOT, fix_console_encoding, load_config, resol
 from pipeline.disagreement import disagreement_stats
 from pipeline.run import PipelineResult, run_pipeline, save_report
 
-STAGES = ("nli", "rte", "clustering", "pipeline", "reports")
+STAGES = ("nli", "rte", "validity", "clustering", "pipeline", "reports")
 
 
 # --------------------------------------------------------------------------- helpers
@@ -138,6 +138,81 @@ def eval_nli_pheme_proxy(cfg: dict, scorer: BaseScorer,
 
 
 # --------------------------------------------------------------------------- PHEME RTE
+def summarise_labelled(truth: Sequence[str], probs: np.ndarray, thr: float,
+                       mask: np.ndarray | None = None) -> dict[str, Any]:
+    """3-class metrics, contradiction P/R/F1 at ``thr``, average precision and flag rate per
+    gold label for symmetric probabilities ``probs`` [n, 3] of labelled pairs."""
+    from sklearn.metrics import average_precision_score
+
+    idx = np.arange(len(truth)) if mask is None else np.where(mask)[0]
+    t = [truth[i] for i in idx]
+    out = classification_metrics(t, [NLI_LABELS[k] for k in probs[idx].argmax(axis=1)])
+    flagged = probs[idx, 2] >= thr
+    c = np.array([x == "contradiction" for x in t], dtype=bool)
+    out["contradiction_at_threshold"] = {
+        "threshold": thr, "n_flagged": int(flagged.sum()),
+        **prf(int((c & flagged).sum()), int((~c & flagged).sum()), int((c & ~flagged).sum()))}
+    out["contradiction_average_precision"] = (
+        float(average_precision_score(c, probs[idx, 2])) if 0 < c.sum() < len(idx) else None)
+    out["flag_rate_by_label"] = {lab: float(flagged[[x == lab for x in t]].mean())
+                                 if lab in t else None for lab in NLI_LABELS}
+    return out
+
+
+def pipeline_on_labelled_pairs(cfg: dict, pairs_by_event: dict[str, list], probs: np.ndarray,
+                               thr: float, embedder: Any, algo: str,
+                               return_masks: bool = False) -> dict[str, Any]:
+    """What clustering does to labelled pairs: a pair is flagged by the pipeline only if both
+    tweets share a cluster and its NLI contradiction probability reaches ``thr``.
+
+    ``probs`` rows follow the pairs of ``pairs_by_event`` in dict order. Each event's rumour
+    source tweets are clustered without deduplication. With ``return_masks`` the per-pair
+    boolean arrays ``_mapped`` and ``_same_cluster`` are added (not JSON-serialisable).
+    """
+    nodedup = dict(cfg, data=dict(cfg["data"], dedup=False, max_claims_per_event=None))
+    events = list(pairs_by_event)
+    all_pairs = [p for e in events for p in pairs_by_event[e]]
+    truth = np.array([p.label for p in all_pairs])
+    is_contra = truth == "contradiction"
+    same_cluster = np.zeros(len(all_pairs), dtype=bool)
+    mapped = np.zeros(len(all_pairs), dtype=bool)
+    clustering: dict[str, Any] = {}
+    offset = 0
+    for e in events:
+        claims = load_event_from_config(nodedup, e, rumours_only=True)
+        index = {c.claim_id.split(":", 1)[1]: i for i, c in enumerate(claims)}
+        emb = embedder.encode([c.text for c in claims])
+        labels = cluster_from_config(emb, cfg, algo)
+        stories = [c.metadata.get("rumour_category") for c in claims]
+        clustering[e] = {"n_reference_stories": len({s for s in stories if s is not None}),
+                         **intrinsic_metrics(emb, labels), **extrinsic_metrics(labels, stories)}
+        for k, pair in enumerate(pairs_by_event[e]):
+            i, j = index.get(pair.tweet_a), index.get(pair.tweet_b)
+            if i is None or j is None:
+                continue
+            mapped[offset + k] = True
+            same_cluster[offset + k] = labels[i] >= 0 and labels[i] == labels[j]
+        offset += len(pairs_by_event[e])
+    m = mapped
+    c = is_contra[m]
+    nli_flag = probs[m, 2] >= thr
+    pipe_flag = nli_flag & same_cluster[m]
+    lab = truth[m]
+    masks = {"_mapped": mapped, "_same_cluster": same_cluster} if return_masks else {}
+    return {
+        **masks,
+        "n_pairs_mapped": int(m.sum()),
+        "clustering_metrics": clustering,
+        "same_cluster_rate_by_label": {l: float(same_cluster[m][lab == l].mean()) for l in NLI_LABELS},
+        "flag_rate_by_label_nli_only": {l: float(nli_flag[lab == l].mean()) for l in NLI_LABELS},
+        "flag_rate_by_label_pipeline": {l: float(pipe_flag[lab == l].mean()) for l in NLI_LABELS},
+        "nli_only": {"n_flagged": int(nli_flag.sum()),
+                     **prf(int((c & nli_flag).sum()), int((~c & nli_flag).sum()), int((c & ~nli_flag).sum()))},
+        "pipeline": {"n_flagged": int(pipe_flag.sum()),
+                     **prf(int((c & pipe_flag).sum()), int((~c & pipe_flag).sum()), int((c & ~pipe_flag).sum()))},
+    }
+
+
 def eval_rte(cfg: dict, scorer: BaseScorer, embedder: Any) -> dict[str, Any]:
     """Evaluate against the labelled tweet pairs of the PHEME RTE release.
 
@@ -145,8 +220,6 @@ def eval_rte(cfg: dict, scorer: BaseScorer, embedder: Any) -> dict[str, Any]:
     combining the two directions. Part B asks what the pipeline does with the same pairs:
     are the two tweets put in the same cluster, and is the pair then flagged?
     """
-    from sklearn.metrics import average_precision_score
-
     root = resolve_path(cfg, "pheme_rte")
     thr = cfg["disagreement"]["contradiction_threshold"]
     default_agg = cfg["nli"]["aggregation"]
@@ -167,19 +240,7 @@ def eval_rte(cfg: dict, scorer: BaseScorer, embedder: Any) -> dict[str, Any]:
     is_contra = np.array([t == "contradiction" for t in truth])
 
     def summarise(probs: np.ndarray, mask: np.ndarray | None = None) -> dict[str, Any]:
-        idx = np.arange(len(truth)) if mask is None else np.where(mask)[0]
-        t = [truth[i] for i in idx]
-        out = classification_metrics(t, [NLI_LABELS[k] for k in probs[idx].argmax(axis=1)])
-        flagged = probs[idx, 2] >= thr
-        c = is_contra[idx]
-        out["contradiction_at_threshold"] = {
-            "threshold": thr, "n_flagged": int(flagged.sum()),
-            **prf(int((c & flagged).sum()), int((~c & flagged).sum()), int((c & ~flagged).sum()))}
-        out["contradiction_average_precision"] = (
-            float(average_precision_score(c, probs[idx, 2])) if 0 < c.sum() < len(idx) else None)
-        out["flag_rate_by_label"] = {lab: float(flagged[[x == lab for x in t]].mean())
-                                     if lab in t else None for lab in NLI_LABELS}
-        return out
+        return summarise_labelled(truth, probs, thr, mask)
 
     counts = {lab: truth.count(lab) for lab in NLI_LABELS}
     nli_only = {name: summarise(probs) for name, probs in views.items()}
@@ -193,38 +254,9 @@ def eval_rte(cfg: dict, scorer: BaseScorer, embedder: Any) -> dict[str, Any]:
 
     # ---- Part B: the pipeline on the same pairs (cluster the event's rumour tweets, no dedup)
     probs = views[default_agg]
-    nodedup = dict(cfg, data=dict(cfg["data"], dedup=False, max_claims_per_event=None))
     pipeline: dict[str, Any] = {}
     for algo in ALGORITHMS:
-        same_cluster = np.zeros(len(all_pairs), dtype=bool)
-        mapped = np.zeros(len(all_pairs), dtype=bool)
-        offset = 0
-        for e in events:
-            claims = load_event_from_config(nodedup, e, rumours_only=True)
-            index = {c.claim_id.split(":", 1)[1]: i for i, c in enumerate(claims)}
-            labels = cluster_from_config(embedder.encode([c.text for c in claims]), cfg, algo)
-            for k, pair in enumerate(pairs_by_event[e]):
-                i, j = index.get(pair.tweet_a), index.get(pair.tweet_b)
-                if i is None or j is None:
-                    continue
-                mapped[offset + k] = True
-                same_cluster[offset + k] = labels[i] >= 0 and labels[i] == labels[j]
-            offset += len(pairs_by_event[e])
-        m = mapped
-        c = is_contra[m]
-        nli_flag = probs[m, 2] >= thr
-        pipe_flag = nli_flag & same_cluster[m]
-        lab = np.array(truth)[m]
-        pipeline[algo] = {
-            "n_pairs_mapped": int(m.sum()),
-            "same_cluster_rate_by_label": {l: float(same_cluster[m][lab == l].mean()) for l in NLI_LABELS},
-            "flag_rate_by_label_nli_only": {l: float(nli_flag[lab == l].mean()) for l in NLI_LABELS},
-            "flag_rate_by_label_pipeline": {l: float(pipe_flag[lab == l].mean()) for l in NLI_LABELS},
-            "nli_only": {"n_flagged": int(nli_flag.sum()),
-                         **prf(int((c & nli_flag).sum()), int((~c & nli_flag).sum()), int((c & ~nli_flag).sum()))},
-            "pipeline": {"n_flagged": int(pipe_flag.sum()),
-                         **prf(int((c & pipe_flag).sum()), int((~c & pipe_flag).sum()), int((c & ~pipe_flag).sum()))},
-        }
+        pipeline[algo] = pipeline_on_labelled_pairs(cfg, pairs_by_event, probs, thr, embedder, algo)
         r = pipeline[algo]
         print(f"[rte] {algo:>13}: same-cluster by label {({k: round(v, 2) for k, v in r['same_cluster_rate_by_label'].items()})}; "
               f"NLI only P={r['nli_only']['precision']:.3f} R={r['nli_only']['recall']:.3f} | "
@@ -440,6 +472,8 @@ def eval_pipeline(cfg: dict, event_claims: dict[str, list[Claim]], embedders: di
                                   "f1": 2 * prevalence / (1 + prevalence) if prevalence else 0.0},
             "flag_no_cluster (majority class)": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
         }
+        size_check = cluster_size_check(default_records, thr, cfg)
+        baselines.update(size_check.pop("baselines"))
 
     # ---- no-clustering baseline: all-pairs NLI on a capped subset, vs clustering on the same subset
     cap = cfg["evaluation"]["allpairs_max_claims"]
@@ -493,8 +527,62 @@ def eval_pipeline(cfg: dict, event_claims: dict[str, list[Claim]], embedders: di
 
     return ({"default_config": default_key, "threshold": thr, "threshold_grid": grid,
              "nli_aggregation": original, "aggregation_ablation": aggregation_ablation,
-             "configs": configs, "baselines": baselines, "no_clustering_baseline": no_clustering},
+             "configs": configs, "baselines": baselines, "no_clustering_baseline": no_clustering,
+             **(size_check if default_records else {})},
             default_results)
+
+
+def cluster_size_check(records: list[dict], threshold: float, cfg: dict) -> dict[str, Any]:
+    """Is the cluster-level result more than "big clusters get flagged"?
+
+    The proxy label (a cluster mixes a true and a false story) and the flag (>= 1 pair over
+    the threshold) both become likelier as clusters grow. This adds baselines that flag the
+    k largest clusters (by claims, and by pairs scored) at the detector's own flag count,
+    ranks clusters by ``disagreement_score`` for AP, saves the per-cluster records, and gives
+    cluster-bootstrap CIs (clusters resampled within each event).
+    """
+    from sklearn.metrics import average_precision_score
+    from evaluation.validity import group_bootstrap
+
+    dis = cfg["disagreement"]
+    stats = [disagreement_stats(r["probs"], threshold, dis["score_weight_fraction"],
+                                dis["min_contradicting_pairs"]) for r in records]
+    y = np.array([r["positive"] for r in records], dtype=bool)
+    flagged = np.array([s["flagged"] for s in stats], dtype=bool)
+    k = int(flagged.sum())
+    size = np.array([r["size"] for r in records], dtype=float)
+    npairs = np.array([len(r["probs"]) for r in records], dtype=float)
+    score = np.array([s["disagreement_score"] for s in stats])
+    maxc = np.array([s["max_contradiction"] for s in stats])
+
+    def top_k(values: np.ndarray) -> np.ndarray:
+        out = np.zeros(len(values), dtype=bool)
+        out[np.argsort(-values, kind="stable")[:k]] = True
+        return out
+
+    systems = {"detector": (flagged, score), "flag_all": (np.ones(len(y), dtype=bool), None),
+               "top_k_by_size": (top_k(size), size), "top_k_by_pairs_scored": (top_k(npairs), npairs)}
+    boot = group_bootstrap(y, [f"{r['event']}:{r['cluster_id']}" for r in records],
+                           [r["event"] for r in records], systems,
+                           [("detector", "flag_all"), ("detector", "top_k_by_size"),
+                            ("detector", "top_k_by_pairs_scored")],
+                           int(cfg["evaluation"].get("bootstrap_samples", 2000)), cfg["seed"])
+    ap = (lambda s: float(average_precision_score(y, s)) if 0 < y.sum() < len(y) else None)
+    baselines = {f"{name}_at_system_flag_count": {
+        "precision": boot["systems"][name]["precision"]["value"],
+        "recall": boot["systems"][name]["recall"]["value"], "f1": boot["systems"][name]["f1"]["value"]}
+        for name in ("top_k_by_size", "top_k_by_pairs_scored")}
+    return {
+        "baselines": baselines,
+        "cluster_level_ranking_ap": {"disagreement_score": ap(score), "max_contradiction": ap(maxc),
+                                     "size": ap(size), "pairs_scored": ap(npairs)},
+        "cluster_level_bootstrap": boot,
+        "default_cluster_records": [
+            {"event": r["event"], "cluster_id": r["cluster_id"], "size": r["size"],
+             "n_pairs_scored": int(n), "proxy_positive": bool(r["positive"]), "flagged": bool(f),
+             "max_contradiction": float(m), "disagreement_score": float(s)}
+            for r, n, f, m, s in zip(records, npairs, flagged, maxc, score)],
+    }
 
 
 # --------------------------------------------------------------------------- error analysis
@@ -743,6 +831,13 @@ def run_evaluation(cfg: dict, stages: Sequence[str] = STAGES, compare_nli: bool 
             timings["rte"] = round(time.time() - t0, 1)
         else:
             print(f"[rte] skipped: {resolve_path(cfg, 'pheme_rte')} not found", flush=True)
+
+    if "validity" in stages and resolve_path(cfg, "pheme_rte").is_dir():
+        from evaluation.validity import run_validity
+
+        t0 = time.time()
+        run_validity(cfg, scorer)
+        timings["validity"] = round(time.time() - t0, 1)
 
     if "clustering" in stages:
         t0 = time.time()

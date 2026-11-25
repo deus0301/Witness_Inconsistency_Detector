@@ -15,3 +15,10 @@ evaluation:
   proxy_pairs_per_class: 40
   allpairs_max_claims: 40
   error_examples: 10
+paths:
+  finetuned_dir: outputs/sample/finetuned   # never overwrite the real checkpoints
+finetune:
+  max_train_pairs: 300
+  max_test_pairs: 200
+  epochs: 1
+  mnli_replay: 100

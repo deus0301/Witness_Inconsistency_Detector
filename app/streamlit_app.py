@@ -20,7 +20,7 @@ from clustering.cluster import ALGORITHMS  # noqa: E402
 from clustering.embed import build_embedder  # noqa: E402
 from data.pheme import list_events, load_event_from_config  # noqa: E402
 from nli_scoring.scorer import build_scorer  # noqa: E402
-from pipeline.config import load_config, resolve_path  # noqa: E402
+from pipeline.config import apply_finetuned, load_config, resolve_path  # noqa: E402
 from pipeline.report import render_markdown  # noqa: E402
 from pipeline.run import (accounts_to_claims, parse_accounts_text, run_pipeline,  # noqa: E402
                           small_input_overrides)
@@ -35,8 +35,10 @@ st.set_page_config(page_title="Cross-Account Inconsistency Detector", layout="wi
 
 
 @st.cache_resource(show_spinner="Loading models (first run downloads them)...")
-def load_models(mock: bool):
+def load_models(mock: bool, finetuned: bool):
     cfg = load_config()
+    if finetuned and not cfg["finetune"].get("active"):
+        apply_finetuned(cfg)
     cfg["models"]["mock"] = mock
     return build_embedder(cfg), build_scorer(cfg)
 
@@ -49,12 +51,34 @@ cfg = load_config()
 with st.sidebar:
     st.header("Settings")
     mock = st.checkbox("Use mock models (no download, low quality)", value=False)
+    use_ft = st.checkbox("Use fine-tuned NLI model", value=bool(cfg["finetune"]["use_finetuned"]),
+                         help="Checkpoint finetune.checkpoint under paths.finetuned_dir, with the "
+                              "direction rule and threshold saved next to it.")
+    if use_ft and not cfg["finetune"].get("active"):
+        apply_finetuned(cfg)
+        if not cfg["finetune"]["active"]:
+            st.warning("Fine-tuned checkpoint not found; using the zero-shot model. "
+                       "Train it with `python -m training.finetune_nli --all-events`.")
+    use_ft = bool(cfg["finetune"].get("active"))
     algorithm = st.selectbox("Clustering algorithm", ALGORITHMS,
                              index=ALGORITHMS.index(cfg["clustering"]["algorithm"]),
                              help="Pasted text works best with agglomerative.")
     threshold = st.slider("Contradiction threshold", 0.5, 0.99,
                           float(cfg["disagreement"]["contradiction_threshold"]), 0.01)
     st.markdown(f"Embeddings: `{cfg['models']['embedding']}`  \nNLI: `{cfg['models']['nli']}`")
+    st.markdown("**Text layer (pasted accounts only)**")
+    abbrev = st.checkbox("Abbreviation-aware sentence splitter",
+                         value=cfg["data"].get("sentence_splitter") == "abbrev",
+                         help="Do not split after Dr., St., approx. and similar.")
+    clauses = st.checkbox("Split sentences over 40 words into clauses",
+                          value=bool(cfg["data"].get("max_claim_words")),
+                          help="A pair must fit the NLI model's 128-token window.")
+    ground = st.checkbox("Speaker grounding", value=bool(cfg["nli"].get("ground_speaker")),
+                         help="'I was inside' -> 'Witness A was inside' before NLI; "
+                              "'I heard two shots' -> 'Two shots'.")
+    cfg["data"]["sentence_splitter"] = "abbrev" if abbrev else "simple"
+    cfg["data"]["max_claim_words"] = (cfg["data"].get("max_claim_words") or 40) if clauses else None
+    cfg["nli"]["ground_speaker"] = ground
 
 source = st.radio("Input", ["Paste accounts", "PHEME event"], horizontal=True)
 claims = []
@@ -62,7 +86,7 @@ name = "custom"
 if source == "Paste accounts":
     raw = st.text_area("One account per paragraph (blank line between accounts). "
                        "Optionally start a paragraph with a name and a colon.", EXAMPLE, height=260)
-    claims = accounts_to_claims(parse_accounts_text(raw), event="custom")
+    claims = accounts_to_claims(parse_accounts_text(raw), event="custom", cfg=cfg)
     # short inputs: looser clusters so related sentences are actually compared
     cut = st.sidebar.slider("Agglomerative distance threshold", 0.2, 0.9, 0.6, 0.05)
     small_input_overrides(cfg, len(claims), cut)
@@ -80,11 +104,15 @@ else:
         claims = load_event_from_config(cfg, name, rumours_only=rumours_only, max_claims=n_max)
 
 st.write(f"**{len(claims)} claims** from **{len({c.account_id for c in claims})} accounts**")
+if source == "Paste accounts" and claims:
+    with st.expander("Claims as split, and the text the NLI model sees"):
+        st.table([{"account": c.account_id, "claim": c.text,
+                   "NLI input": c.metadata.get("nli_text") or c.text} for c in claims])
 
 if st.button("Detect disagreement", type="primary", disabled=len(claims) < 2):
     cfg["models"]["mock"] = mock
     cfg["disagreement"]["contradiction_threshold"] = threshold
-    embedder, scorer = load_models(mock)
+    embedder, scorer = load_models(mock, use_ft)
     with st.spinner("Clustering and scoring claim pairs..."):
         result = run_pipeline(claims, cfg, embedder, scorer, algorithm, name=name, verbose=False)
     report = result.report

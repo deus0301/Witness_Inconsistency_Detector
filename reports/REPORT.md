@@ -28,8 +28,13 @@ account is right.
 - A manual audit of 40 random flagged pairs found 27.5% genuine disagreements, 15% time-driven
   conflicts and 57.5% false alarms (done on the earlier HDBSCAN configuration).
 
+- **Fine-tuning the NLI model** on the labelled pairs, tested on an event it never saw, raises
+  contradiction recall from 30.8% to 63.5% on average across four events (precision 58.4% to
+  62.9%), and pipeline recall from 11.8% to 35.7%. It does not help on every event (section 6.10).
+
 In short: the pipeline surfaces real conflicts at a precision of roughly two in three on labelled
-data, but it misses most of them, and the off-the-shelf NLI model is the main limit.
+data. The off-the-shelf NLI model misses most of them; fine-tuning on held-out events catches about
+twice as many, and clustering then becomes the main limit on recall.
 
 ## 1. Motivation
 
@@ -201,8 +206,10 @@ and the top contradicting pairs with both texts, both accounts and the probabili
   and agglomerative clustering as the default. The latter was chosen on the labelled pairs
   themselves (section 6.4), so its figures on those pairs are optimistic as an estimate for new
   data. Thresholds and clustering parameters were set once and not tuned.
-- **Not run:** the optional comparison NLI model `roberta-large-mnli`, fine-tuning on MultiNLI or
-  on the RTE pairs, the multilingual embedder, and the Ferguson event.
+- **Fine-tuning (section 6.10):** leave-one-event-out on the RTE pairs, validated on a whole
+  training event. Sections 6.1 to 6.9 use the zero-shot model.
+- **Not run:** the optional comparison NLI model `roberta-large-mnli`, fine-tuning on MultiNLI,
+  the multilingual embedder, and the Ferguson event.
 
 ## 6. Results
 
@@ -449,6 +456,197 @@ Recurring model errors: attribution phrases ("AFP says" against "CTV reports"), 
 with no proposition, entity aliases ("Charb" and "Stephane Charbonnier"), and numbers that count
 different things (142 passengers and 150 people on board).
 
+### 6.10 Fine-tuning the NLI model on the labelled pairs
+
+**Method.** `cross-encoder/nli-deberta-v3-base` was fine-tuned on the PHEME RTE pairs with the
+leave-one-event-out splits that ship with the dataset (`training/finetune_nli.py`, settings in
+the `finetune` section of `configs/default.yaml`). Each fold trains on three events and tests on
+the fourth.
+
+- Labels: entailment, unknown as neutral, contradiction. The model keeps its 3-class head; label
+  indices are read from its `id2label`.
+- Every training pair is used in both orders with the same label. 3,000 random MultiNLI training
+  examples are mixed in to limit forgetting. The loss is weighted by inverse class frequency.
+- Learning rate 2e-5, batch 16, at most 3 epochs, warmup 10%, weight decay 0.01, fp16, seed 42.
+- No train pair shares an id or a text pair with its test file (checked; nothing was removed).
+
+**Validation.** Early stopping, the direction rule and the threshold were chosen on a
+validation set drawn from the training events only. A random 10% of training pairs was tried
+first and did not work: validation average precision reached 1.0 after one epoch. The training
+events contain only 472 distinct tweets, each in about 18 pairs, and the labels follow rumour
+stories, so a random pair split puts the same tweets and stories on both sides. Validation is
+therefore one whole training event (Sydney for the Germanwings fold, Ottawa for Sydney, Germanwings
+for Charlie Hebdo, Charlie Hebdo for Ottawa), and the model trains on the other two. The test
+event is never used for training, stopping or choosing a threshold.
+
+Two operating points are chosen on validation: best contradiction F1, and highest recall with
+precision at least 0.55. The zero-shot model is reported both at the project default
+(min_contradiction, 0.9) and at its own validation-tuned point, so the comparison is fair.
+
+**Results.** Mean over the four held-out events (unweighted):
+
+| Setting | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|
+| Zero-shot, default (min, 0.9) | 0.460 | 0.379 | 0.584 | 0.308 | 0.372 | 0.504 | 4.3% / 7.0% / 30.8% |
+| Zero-shot, validation-tuned best F1 | 0.438 | 0.372 | 0.452 | 0.547 | 0.449 | 0.468 | 16.5% / 32.2% / 54.7% |
+| Fine-tuned, validation-tuned best F1 | 0.715 | 0.692 | 0.629 | 0.635 | 0.607 | 0.612 | 15.8% / 11.8% / 63.5% |
+
+Per held-out event, fine-tuned (best F1 point) against zero-shot at the default:
+
+| Held out | Test pairs | Best epoch | Contr. P | Contr. R | Contr. F1 | Pipeline P | Pipeline R |
+|---|---|---|---|---|---|---|---|
+| Germanwings crash | 1,163 | 1 | 0.545 → 0.467 | 0.093 → 0.922 | 0.159 → 0.620 | 0.571 → 0.535 | 0.033 → 0.611 |
+| Sydney siege | 1,214 | 2 | 0.596 → 0.542 | 0.177 → 0.407 | 0.273 → 0.465 | 0.562 → 0.500 | 0.057 → 0.151 |
+| Charlie Hebdo | 1,936 | 1 | 0.395 → 0.748 | 0.234 → 0.576 | 0.294 → 0.651 | 0.802 → 0.864 | 0.195 → 0.489 |
+| Ottawa shooting | 1,100 | 1 | 0.799 → 0.761 | 0.727 → 0.634 | 0.761 → 0.692 | 0.602 → 0.593 | 0.188 → 0.178 |
+| Mean | | | 0.584 → 0.629 | 0.308 → 0.635 | 0.372 → 0.607 | 0.634 → 0.623 | 0.118 → 0.357 |
+
+"Pipeline" repeats the analysis of section 6.4 on the held-out event: agglomerative clusters,
+and a pair counts as flagged only if both tweets share a cluster and the score reaches the
+threshold. Confusion matrices are in `figures/confusion_finetune_leave_<event>.png`; every
+setting, including the recall-at-precision mode, is in `RESULTS_TABLES.md`.
+
+![Fine-tuned, Germanwings held out](figures/confusion_finetune_leave_gw.png)
+
+Clustering quality on the same held-out events (agglomerative, MiniLM, reference = annotated
+rumour story). It does not depend on the NLI model:
+
+| Event | Claims | Clusters | Stories | Silhouette | Davies-Bouldin | ARI | NMI | Homogeneity | Completeness | V-measure | Fowlkes-Mallows |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Germanwings crash | 238 | 15 | 19 | 0.248 | 1.708 | 0.395 | 0.694 | 0.629 | 0.774 | 0.694 | 0.503 |
+| Sydney siege | 520 | 34 | 61 | 0.174 | 1.740 | 0.145 | 0.559 | 0.480 | 0.668 | 0.559 | 0.262 |
+| Charlie Hebdo | 458 | 26 | 60 | 0.184 | 1.656 | 0.089 | 0.561 | 0.450 | 0.745 | 0.561 | 0.214 |
+| Ottawa shooting | 470 | 26 | 51 | 0.230 | 1.840 | 0.471 | 0.713 | 0.669 | 0.764 | 0.713 | 0.524 |
+
+What this shows:
+
+- **Fine-tuning roughly doubles contradiction recall on unseen events** (0.31 to 0.64) and
+  raises 3-class accuracy from 0.46 to 0.72, with precision about the same (0.58 to 0.63).
+  Through the pipeline, recall triples (0.12 to 0.36) at the same precision.
+- **It is not a gain everywhere.** On Ottawa, where the zero-shot model was already good
+  (explicit contradictions), the fine-tuned model is slightly worse. On Germanwings it finds
+  92% of contradictions but also flags 39% of entailment pairs, and precision falls below the
+  0.55 target that was met on validation.
+- **Tuning the zero-shot threshold on validation does not do the same job.** It trades precision
+  for recall (precision 0.45, recall 0.55) and flags a third of unrelated pairs.
+- **The threshold carries little information for the fine-tuned model.** Its probabilities are
+  close to 0 or 1, so the chosen thresholds range from 0.05 to 0.95 between folds with similar
+  results, and several sit at the bottom of the search grid. In effect the model decides by its
+  top label.
+- **Overfitting is fast.** Training loss falls from about 0.3 to 0.03 to 0.05 in the second epoch while
+  validation average precision drops in three folds of four; the best epoch was 1 in three folds.
+- **Clustering now limits recall more than the NLI model.** On Ottawa the fine-tuned model alone
+  finds 63% of contradictions but the pipeline 18%, because many contradicting tweets fall in
+  different clusters. Sydney and Charlie Hebdo cluster worst against the stories (ARI 0.15 and
+  0.09).
+
+**Caveats.**
+
+- The labels are story-level (section 3.3). The model can learn that two tweets come from
+  competing stories rather than that they contradict each other, and the high entailment flag
+  rate on Germanwings is consistent with that. The test event's stories are new, which limits
+  but does not remove this.
+- Folds are small (1,100 to 1,936 test pairs, one event each) and differ a lot, so the mean
+  hides a wide spread. Each fold was trained once with one seed; no variance across seeds is
+  reported.
+- Thresholds and the direction rule were chosen on validation only, but the validation scheme
+  itself (a whole event) was chosen after seeing the random split fail on the first fold,
+  whose test scores had also been seen. No training setting was changed after that.
+- The all-events model used by the demo (`finetuned/nli-deberta-v3-base-pheme-all`) is trained on
+  every labelled pair for one epoch (median best epoch) with the median fold threshold. It has no
+  test set of its own, and any number measured with it on PHEME RTE pairs would be on training
+  data.
+
+**Direction rule for the demo.** The folds mostly chose `max_contradiction` (one direction is
+enough). On the example witness accounts this flags "The driver stayed at the scene" against
+"The driver got out and called an ambulance", which agree. The zero-shot model makes the same
+error with full confidence in both directions; the fine-tuned model calls it neutral in one
+direction and contradiction in the other. The rules were then compared on the four validation
+events only, at the demo threshold of 0.5 (`direction_rules_on_validation` in the results):
+
+| Rule (mean of 4 validation events) | Contr. P | Contr. R | Contr. F1 | Flag rate: entailment / unknown |
+|---|---|---|---|---|
+| max_contradiction | 0.699 | 0.606 | 0.641 | 10.3% / 8.1% |
+| mean | 0.737 | 0.532 | 0.616 | 6.5% / 6.1% |
+| min_contradiction (demo) | 0.770 | 0.424 | 0.547 | 3.7% / 4.0% |
+
+The demo uses `min_contradiction` (`finetune.aggregation_override`), for the same reason as the
+zero-shot default (section 4): a person reads every flag, so a shorter, cleaner list is worth more
+than recall. This removes the driver false alarm but also loses a real one on the same example
+("ran the red light" against "the light was green"), which the fine-tuned model scores as a
+contradiction in one direction only. The leave-one-event-out results above keep the rules chosen
+by the fold procedure; the override was chosen after looking at one example and the validation
+events, not the test events.
+
+### 6.11 Evaluation validity: independent units, intervals and baselines
+
+Added after an external review (`critic/REPORT.md`). Every number here is generated by
+`python -m evaluation.validity` and printed in `RESULTS_TABLES.md` ("Evaluation validity").
+
+**The labelled pairs hold few independent units.** A PHEME RTE label is a deterministic function
+of the two rumour stories a pair belongs to: grouping the 5,413 pairs by (event, stories) gives 85
+groups, none with mixed labels. The 1,378 contradictions come from 21 story pairs, and Germanwings
+has one ("up to 150 perished" against "148 on board"), so its recall is the hit rate on a single
+conflict. Pairs inside a group are not independent, so all intervals below resample whole story
+groups within each event (2,000 resamples, 95% percentile intervals). For the zero-shot default
+this widens the F1 interval from 0.050 (resampling pairs) to 0.434.
+
+**Baselines at pair level.** On all labelled pairs the zero-shot default (min rule, 0.9) has F1
+0.430 [0.196, 0.630]. Flagging every pair gives 0.406, and three untuned keyword cues (negation,
+number or antonym mismatch) give 0.476. The paired difference to flag-all is +0.02 [-0.22, +0.25].
+The default buys precision (0.62 against 0.26) at the cost of recall; it is not better in F1.
+
+**Fine-tuning against the fair reference.** Pooled over the four held-out events, with each pair
+scored by its own fold's model at that fold's validation-chosen operating point:
+
+| System | Contr. P | Contr. R | Contr. F1 |
+|---|---|---|---|
+| zero-shot, default (min, 0.9) | 0.619 | 0.329 | 0.430 [0.196, 0.630] |
+| zero-shot, validation-tuned | 0.424 | 0.588 | 0.492 [0.237, 0.678] |
+| fine-tuned, validation-tuned | 0.613 | 0.618 | 0.615 [0.347, 0.747] |
+| keyword cues | 0.467 | 0.485 | 0.476 [0.185, 0.676] |
+| story oracle (two stories and similar wording; reads the label structure) | 0.529 | 0.781 | 0.631 [0.432, 0.767] |
+
+Fine-tuned minus validation-tuned zero-shot: F1 +0.12 [-0.08, +0.35], recall +0.03 [-0.25, +0.33].
+The "doubles recall" figure of section 6.10 compares against the fixed 0.9 point, which is a
+choice of operating point, not of model. Per event the F1 gain over the validation-tuned zero-shot
+model is +0.28, +0.14, +0.20 and +0.00 (Germanwings, Sydney, Charlie Hebdo, Ottawa). Fine-tuning
+beats the keyword cues (+0.14 [+0.03, +0.27]) but not the story oracle (-0.02 [-0.22, +0.13]),
+which is consistent with part of the gain being story learning.
+
+**Clustering.** Pipeline minus NLI-only on the labelled pairs: precision +0.05 [-0.11, +0.29],
+recall -0.20 [-0.40, -0.05]. The precision gain is not significant; the recall loss is.
+
+**Cluster level.** Flagging the k largest clusters (k = the detector's own flag count) gives F1
+0.519 against the detector's 0.568; the difference is +0.05 [-0.02, +0.13]. Ranking clusters by
+size alone has AP 0.680 against the proxy, above ranking by maximum contradiction (0.639) or by the
+disagreement score (0.381). The veracity-proxy result is therefore mostly a cluster-size effect.
+
+**Text layer for pasted accounts.** Three changes sit in front of the NLI stage for free-text
+accounts (tweets are not affected): a sentence splitter that does not split after "Dr.", "St.",
+"approx." and similar; clause splitting of sentences over 40 words, since premise and hypothesis
+share the 128-token window (two long accounts that differ only in their last clause scored
+entailment 0.998 because both were cut at the same place); and speaker grounding, which rewrites
+"I", "my" and "we" to the account's name and drops a leading "I heard / I saw". On 23 witness-style
+probe checks (`python -m evaluation.witness_probes`), applied one change at a time:
+
+| Run | Passed |
+|---|---|
+| before (zero-shot) | 13 / 23 |
+| + abbreviation-aware splitter | 18 / 23 |
+| + clause splitting | 19 / 23 |
+| + speaker grounding (with the perception rule) | 21 / 23 |
+| fine-tuned model, before / after | 14 / 23, 22 / 23 |
+
+Grounding without the perception rule fixed two first-person false alarms but lost a real one
+("I heard two shots" against "I heard three shots", which the model then read as two different
+hearers). Still failing: "my car was parked outside the bank" against "my car was in the garage"
+(two different cars, contradiction 0.9999), and with the zero-shot model the example file's
+"stayed at the scene" against "got out and called an ambulance". These need a check after the NLI
+stage, not a text rewrite. The probes are hand-written and few; they show failure modes, not
+rates.
+
+
 ## 7. Runtime
 
 Measured on an RTX 4050 laptop GPU (6 GB), Windows 11, Python 3.11.
@@ -471,7 +669,9 @@ not been re-timed since.
 ## 8. Limitations
 
 1. **Recall is low.** On labelled pairs the pipeline finds about 13% of contradictions; NLI alone
-   finds 33%. Most real conflicts are missed.
+   finds 33%. Fine-tuning raises these to 36% and 64% on held-out events (section 6.10), but most
+   conflicts are still missed by the pipeline, mainly because contradicting claims fall in
+   different clusters.
 2. **Labels are story-level.** The RTE labels come through rumour stories, not per-pair reading,
    so some "contradictions" are competing claims and many "entailments" are loosely related.
 3. **The default clustering was selected on the labelled pairs**, with no held-out split. Four
@@ -486,6 +686,15 @@ not been re-timed since.
 9. **The findings summary is not evaluated.** "Agree" relies on the same NLI model's entailment
    score, which section 6.2 shows is conservative, so real agreement is under-reported.
 10. **The manual audit is small, single-annotator, and from the earlier configuration.**
+11. **Different descriptions of the same fact are read as contradictions.** Both models flag
+    "stayed at the scene" against "got out and called an ambulance". The models match surface
+    patterns (same person, different actions) and have no world knowledge linking the two.
+    The PHEME pairs do not teach this, and the stricter demo rule only hides it when one
+    direction disagrees.
+12. **The fine-tuned model may have learned story cues.** It was trained on story-level labels,
+    flags many entailment pairs on some events (39% on Germanwings), is slightly worse than the
+    zero-shot model on Ottawa, and was trained once per fold with one seed. Its threshold is
+    unstable across folds. The demo model has no held-out evaluation of its own.
 
 ## 9. Ethics
 
@@ -506,8 +715,12 @@ not been re-timed since.
 
 ## 10. Future work
 
-- Fine-tune the NLI model on the labelled PHEME pairs with leave-one-event-out splits (the dataset
-  ships such splits); this is the most direct way to raise recall.
+- Fine-tuning (section 6.10): repeat with several seeds, a lower learning rate or fewer steps
+  (it overfits within one epoch), and a class-balanced validation event; test on pairs labelled
+  sentence by sentence, or on a fifth event, to check for story cues; calibrate its
+  probabilities so the threshold means something.
+- Since clustering is now the main limit on recall, try comparing pairs across neighbouring
+  clusters, or a looser clustering, with the fine-tuned scorer.
 - Choose the clustering on a held-out event instead of on all labelled pairs.
 - A relevance gate before NLI: compare two claims only if they share an entity and a predicate.
 - Use timestamps to separate "superseded by a later report" from "disputed".

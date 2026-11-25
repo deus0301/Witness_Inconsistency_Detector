@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import os
 import random
 import sys
@@ -46,6 +47,56 @@ def load_config(
         cfg["sample_mode"] = False
     if overrides:
         deep_update(cfg, copy.deepcopy(overrides))
+    if cfg.get("finetune", {}).get("use_finetuned"):
+        apply_finetuned(cfg)
+    return cfg
+
+
+OPERATING_POINT_FILE = "operating_point.json"
+FINETUNE_META_FILE = "finetune_meta.json"
+
+
+def finetuned_model_name(cfg: dict, checkpoint: str) -> str:
+    """Name of a fine-tuned checkpoint as ``resolve_model`` expects it.
+
+    Relative to ``paths.models_dir`` when the checkpoint lives under it (for example
+    ``finetuned/nli-deberta-v3-base-pheme-all``), so ``resolve_model`` finds it unchanged
+    and ``slug`` gives it a cache file of its own.
+    """
+    path = resolve_path(cfg, "finetuned_dir") / checkpoint
+    try:
+        return path.relative_to(resolve_path(cfg, "models_dir")).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def read_operating_point(model_dir: str | Path) -> dict | None:
+    path = Path(model_dir) / OPERATING_POINT_FILE
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def apply_finetuned(cfg: dict) -> dict:
+    """Point ``models.nli`` at the configured fine-tuned checkpoint and use its saved
+    direction rule and threshold (mode ``finetune.operating_mode``).
+    ``finetune.aggregation_override`` replaces the saved direction rule when set.
+
+    If the checkpoint is missing, warn and keep the zero-shot model and settings.
+    """
+    ft = cfg["finetune"]
+    name = finetuned_model_name(cfg, ft["checkpoint"])
+    local = resolve_model(name, cfg)
+    point = read_operating_point(local) if Path(local).is_dir() else None
+    if point is None:
+        print(f"[config] fine-tuned NLI checkpoint '{name}' not found (or has no "
+              f"{OPERATING_POINT_FILE}); using the zero-shot model {cfg['models']['nli']}",
+              file=sys.stderr, flush=True)
+        cfg["finetune"]["active"] = False
+        return cfg
+    chosen = point["modes"][ft["operating_mode"]]
+    cfg["models"]["nli"] = name
+    cfg["nli"]["aggregation"] = ft.get("aggregation_override") or chosen["aggregation"]
+    cfg["disagreement"]["contradiction_threshold"] = float(chosen["threshold"])
+    cfg["finetune"]["active"] = True
     return cfg
 
 

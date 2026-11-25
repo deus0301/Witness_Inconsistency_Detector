@@ -8,6 +8,8 @@ paths:
   pheme_v1: data/raw/pheme_v1/pheme-rnr-dataset            # 5 events, fallback (no veracity)
   multinli: data/raw/multinli_1.0/multinli_1.0
   pheme_rte: pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits   # labelled tweet pairs
+  pheme_rte_splits: pheme_rte_datasets_2016/pheme_rte_datasets_2016/test_training_splits  # leave-one-event-out
+  finetuned_dir: models/finetuned   # fine-tuned NLI checkpoints (gitignored, under models/)
   models_dir: models          # optional local snapshots: models/<name with / replaced by __>
   cache_dir: outputs/cache    # embedding + NLI score caches
   output_dir: outputs
@@ -23,6 +25,9 @@ data:
   min_tokens: 4               # drop cleaned tweets shorter than this
   dedup: true                 # drop exact duplicates of the normalised text (keep earliest)
   max_claims_per_event: null  # null = no cap
+  # --- pasted / free-text accounts only (PHEME tweets are not split)
+  sentence_splitter: abbrev   # abbrev (not after Dr. St. approx. ...) | simple (split after every . ! ?)
+  max_claim_words: 40         # split longer sentences into clauses so a pair fits nli.max_length; null = never
 
 models:
   nli: cross-encoder/nli-deberta-v3-base
@@ -37,6 +42,8 @@ nli:
   max_length: 128
   aggregation: min_contradiction   # combine the two directions: max_contradiction | min_contradiction | mean
   fp16: true                       # only used on GPU
+  ground_speaker: true             # pasted accounts: "I"/"my"/"we" -> the account's name before NLI
+                                   # (pipeline/grounding.py; "I heard/saw X" -> "X")
 
 clustering:
   algorithm: agglomerative         # hdbscan | kmeans | agglomerative | graph
@@ -67,3 +74,42 @@ evaluation:
   aggregations: [max_contradiction, mean, min_contradiction]   # ablation on the default config
   allpairs_max_claims: 350         # all-pairs baseline is run on at most this many claims/event
   error_examples: 20
+  bootstrap_samples: 2000          # story-group / cluster bootstrap resamples (evaluation/validity.py)
+
+finetune:                          # NLI fine-tuning on PHEME RTE (training/finetune_nli.py)
+  # --- use in the pipeline / Streamlit app
+  use_finetuned: false             # true = replace models.nli by the checkpoint below
+  checkpoint: nli-deberta-v3-base-pheme-all   # folder under paths.finetuned_dir
+  operating_mode: best_f1          # best_f1 | recall_at_precision: which saved operating point to use
+  aggregation_override: min_contradiction   # null = use the saved rule. min: both directions must
+                                   # say contradiction (fewer false alarms, lower recall; see REPORT 6.10)
+  # --- training
+  folds: [germanwings-crash, sydneysiege, ottawashooting, charliehebdo]   # held-out events
+  lr: 2.0e-5
+  epochs: 3
+  batch_size: 16
+  eval_batch_size: 64
+  max_length: 128
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  fp16: true                       # only used on GPU
+  both_directions: true            # train on (A,B) and (B,A) with the same label
+  imbalance: weighted_loss         # weighted_loss (inverse frequency) | sampler (WeightedRandomSampler) | none
+  mnli_replay: 3000                # random MultiNLI examples mixed into training; 0 disables
+  mnli_split: train                # train | dev_matched | dev_mismatched (local jsonl, never downloaded)
+  validation: held_out_event       # held_out_event | pairs (see below)
+  # held_out_event: validate on one whole training event (the next event after the held-out one
+  #   in `folds`, cyclically) and train on the other two. Tweets and rumour stories repeat
+  #   heavily inside an event, so a random pair split leaks and saturates (val AP ~1.0).
+  # pairs: val_fraction of the train pairs, stratified by label, grouped by text pair.
+  val_fraction: 0.1
+  early_stopping_metric: contradiction_ap   # contradiction_ap | contradiction_f1 (on validation)
+  early_stopping_patience: 1       # epochs without improvement before stopping
+  operating_point:
+    aggregations: [max_contradiction, mean, min_contradiction]
+    fine_grid: {start: 0.05, stop: 0.99, step: 0.01}   # added to evaluation.threshold_grid
+    min_precision: 0.55            # recall_at_precision: highest recall with precision >= this
+  pipeline_eval_algorithm: agglomerative   # clustering used for the "pipeline on labelled pairs" view
+  max_train_pairs: null            # cap for quick runs (sample config); null = all
+  max_test_pairs: null

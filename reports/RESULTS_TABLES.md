@@ -87,6 +87,8 @@ Default configuration: `sentence-transformers/all-MiniLM-L6-v2|agglomerative`, t
 | random_at_system_flag_rate | 0.273 | 0.517 | 0.357 |
 | flag_all_clusters | 0.275 | 1.000 | 0.431 |
 | flag_no_cluster (majority class) | 0.000 | 0.000 | 0.000 |
+| top_k_by_size_at_system_flag_count | 0.396 | 0.750 | 0.519 |
+| top_k_by_pairs_scored_at_system_flag_count | 0.396 | 0.750 | 0.519 |
 
 ### Per event (default configuration)
 
@@ -124,6 +126,274 @@ Default configuration: `sentence-transformers/all-MiniLM-L6-v2|agglomerative`, t
 | Debunk pairs kept together | 145 of 145 | 73 of 145 |
 | Debunk pairs flagged | 36 | 25 |
 
+## NLI fine-tuned on PHEME RTE (leave one event out)
+
+Each row is scored on the held-out event only. Direction rule and threshold were chosen on a validation split of the training events; the held-out event was not used for training, early stopping or choosing the operating point.
+
+### Held out: germanwings-crash
+
+Test pairs 1,163 (entailment / unknown / contradiction 459 / 447 / 257); train 3,036, validation 1,214 pairs (event sydneysiege); best epoch 1; leakage removed from train: 0.
+
+| Setting | Rule | Threshold | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | min_contradiction | 0.90 | 0.414 | 0.309 | 0.545 | 0.093 | 0.159 | 0.414 | 2.0% / 2.5% / 9.3% |
+| zero-shot, val-tuned best F1 | max_contradiction | 0.48 | 0.414 | 0.347 | 0.394 | 0.296 | 0.338 | 0.360 | 9.2% / 16.8% / 29.6% |
+| zero-shot, val-tuned recall at P>=min | mean | 0.73 | 0.413 | 0.303 | 0.534 | 0.121 | 0.197 | 0.404 | 2.8% / 3.1% / 12.1% |
+| fine-tuned, val-tuned best F1 | max_contradiction | 0.95 | 0.727 | 0.726 | 0.467 | 0.922 | 0.620 | 0.503 | 38.6% / 21.0% / 92.2% |
+| fine-tuned, val-tuned recall at P>=min | mean | 0.32 | 0.736 | 0.734 | 0.464 | 0.922 | 0.617 | 0.507 | 38.6% / 21.7% / 92.2% |
+
+### Held out: sydneysiege
+
+Test pairs 1,214 (entailment / unknown / contradiction 332 / 565 / 317); train 3,099, validation 1,100 pairs (event ottawashooting); best epoch 2; leakage removed from train: 0.
+
+| Setting | Rule | Threshold | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | min_contradiction | 0.90 | 0.509 | 0.386 | 0.596 | 0.177 | 0.273 | 0.402 | 3.0% / 5.0% / 17.7% |
+| zero-shot, val-tuned best F1 | mean | 0.68 | 0.489 | 0.365 | 0.549 | 0.230 | 0.324 | 0.409 | 4.2% / 8.1% / 23.0% |
+| zero-shot, val-tuned recall at P>=min | mean | 0.08 | 0.489 | 0.365 | 0.392 | 0.511 | 0.444 | 0.409 | 19.0% / 33.3% / 51.1% |
+| fine-tuned, val-tuned best F1 | max_contradiction | 0.05 | 0.682 | 0.644 | 0.542 | 0.407 | 0.465 | 0.443 | 9.0% / 14.0% / 40.7% |
+| fine-tuned, val-tuned recall at P>=min | max_contradiction | 0.05 | 0.682 | 0.644 | 0.542 | 0.407 | 0.465 | 0.443 | 9.0% / 14.0% / 40.7% |
+
+### Held out: charliehebdo
+
+Test pairs 1,936 (entailment / unknown / contradiction 643 / 866 / 427); train 2,314, validation 1,163 pairs (event germanwings-crash); best epoch 1; leakage removed from train: 0.
+
+| Setting | Rule | Threshold | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | min_contradiction | 0.90 | 0.465 | 0.387 | 0.395 | 0.234 | 0.294 | 0.347 | 0.9% / 17.0% / 23.4% |
+| zero-shot, val-tuned best F1 | max_contradiction | 0.05 | 0.381 | 0.359 | 0.329 | 0.700 | 0.447 | 0.287 | 8.1% / 64.5% / 70.0% |
+| zero-shot, val-tuned recall at P>=min | mean | 0.68 | 0.395 | 0.330 | 0.397 | 0.297 | 0.340 | 0.348 | 1.4% / 21.2% / 29.7% |
+| fine-tuned, val-tuned best F1 | mean | 0.07 | 0.814 | 0.774 | 0.748 | 0.576 | 0.651 | 0.712 | 3.9% / 6.7% / 57.6% |
+| fine-tuned, val-tuned recall at P>=min | mean | 0.39 | 0.814 | 0.774 | 0.796 | 0.529 | 0.636 | 0.712 | 2.6% / 4.7% / 52.9% |
+
+### Held out: ottawashooting
+
+Test pairs 1,100 (entailment / unknown / contradiction 555 / 168 / 377); train 2,377, validation 1,936 pairs (event charliehebdo); best epoch 1; leakage removed from train: 0.
+
+| Setting | Rule | Threshold | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | min_contradiction | 0.90 | 0.450 | 0.435 | 0.799 | 0.727 | 0.761 | 0.852 | 11.4% / 3.6% / 72.7% |
+| zero-shot, val-tuned best F1 | max_contradiction | 0.05 | 0.469 | 0.417 | 0.536 | 0.960 | 0.688 | 0.817 | 44.7% / 39.3% / 96.0% |
+| zero-shot, val-tuned recall at P>=min | max_contradiction | 0.05 | 0.469 | 0.417 | 0.536 | 0.960 | 0.688 | 0.817 | 44.7% / 39.3% / 96.0% |
+| fine-tuned, val-tuned best F1 | mean | 0.06 | 0.638 | 0.625 | 0.761 | 0.634 | 0.692 | 0.791 | 11.9% / 5.4% / 63.4% |
+| fine-tuned, val-tuned recall at P>=min | max_contradiction | 0.05 | 0.645 | 0.632 | 0.729 | 0.658 | 0.692 | 0.803 | 14.8% / 6.0% / 65.8% |
+
+### Mean over 4 folds (unweighted)
+
+| Setting | 3-class acc. | Macro-F1 | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | 0.460 | 0.379 | 0.584 | 0.308 | 0.372 | 0.504 | 4.3% / 7.0% / 30.8% |
+| zero-shot, val-tuned best F1 | 0.438 | 0.372 | 0.452 | 0.547 | 0.449 | 0.468 | 16.5% / 32.2% / 54.7% |
+| zero-shot, val-tuned recall at P>=min | 0.441 | 0.354 | 0.465 | 0.472 | 0.417 | 0.495 | 17.0% / 24.2% / 47.2% |
+| fine-tuned, val-tuned best F1 | 0.715 | 0.692 | 0.629 | 0.635 | 0.607 | 0.612 | 15.8% / 11.8% / 63.5% |
+| fine-tuned, val-tuned recall at P>=min | 0.719 | 0.696 | 0.633 | 0.629 | 0.602 | 0.616 | 16.3% / 11.6% / 62.9% |
+
+### Pipeline on the held-out labelled pairs (agglomerative clusters, then NLI)
+
+A pair is flagged only if both tweets share a cluster and the NLI score reaches the setting's threshold (as in the labelled-pair pipeline table above).
+
+| Held out | Setting | Mapped pairs | Contradictions in same cluster | Flagged | Pipeline P | Pipeline R | Pipeline F1 | NLI-only R |
+|---|---|---|---|---|---|---|---|---|
+| germanwings-crash | zero-shot, default (min, 0.9) | 1,044 | 66.1% | 14 | 0.571 | 0.033 | 0.063 | 0.088 |
+| germanwings-crash | zero-shot, val-tuned best F1 | 1,044 | 66.1% | 74 | 0.608 | 0.188 | 0.288 | 0.289 |
+| germanwings-crash | zero-shot, val-tuned recall at P>=min | 1,044 | 66.1% | 20 | 0.500 | 0.042 | 0.077 | 0.109 |
+| germanwings-crash | fine-tuned, val-tuned best F1 | 1,044 | 66.1% | 273 | 0.535 | 0.611 | 0.570 | 0.916 |
+| germanwings-crash | fine-tuned, val-tuned recall at P>=min | 1,044 | 66.1% | 273 | 0.535 | 0.611 | 0.570 | 0.916 |
+| sydneysiege | zero-shot, default (min, 0.9) | 1,214 | 40.1% | 32 | 0.562 | 0.057 | 0.103 | 0.177 |
+| sydneysiege | zero-shot, val-tuned best F1 | 1,214 | 40.1% | 42 | 0.595 | 0.079 | 0.139 | 0.230 |
+| sydneysiege | zero-shot, val-tuned recall at P>=min | 1,214 | 40.1% | 115 | 0.409 | 0.148 | 0.218 | 0.511 |
+| sydneysiege | fine-tuned, val-tuned best F1 | 1,214 | 40.1% | 96 | 0.500 | 0.151 | 0.232 | 0.407 |
+| sydneysiege | fine-tuned, val-tuned recall at P>=min | 1,214 | 40.1% | 96 | 0.500 | 0.151 | 0.232 | 0.407 |
+| charliehebdo | zero-shot, default (min, 0.9) | 1,876 | 82.7% | 101 | 0.802 | 0.195 | 0.314 | 0.236 |
+| charliehebdo | zero-shot, val-tuned best F1 | 1,876 | 82.7% | 394 | 0.599 | 0.569 | 0.583 | 0.696 |
+| charliehebdo | zero-shot, val-tuned recall at P>=min | 1,876 | 82.7% | 133 | 0.789 | 0.253 | 0.383 | 0.301 |
+| charliehebdo | fine-tuned, val-tuned best F1 | 1,876 | 82.7% | 235 | 0.864 | 0.489 | 0.625 | 0.590 |
+| charliehebdo | fine-tuned, val-tuned recall at P>=min | 1,876 | 82.7% | 206 | 0.903 | 0.448 | 0.599 | 0.542 |
+| ottawashooting | zero-shot, default (min, 0.9) | 1,096 | 30.5% | 118 | 0.602 | 0.188 | 0.287 | 0.727 |
+| ottawashooting | zero-shot, val-tuned best F1 | 1,096 | 30.5% | 287 | 0.376 | 0.286 | 0.325 | 0.960 |
+| ottawashooting | zero-shot, val-tuned recall at P>=min | 1,096 | 30.5% | 287 | 0.376 | 0.286 | 0.325 | 0.960 |
+| ottawashooting | fine-tuned, val-tuned best F1 | 1,096 | 30.5% | 113 | 0.593 | 0.178 | 0.273 | 0.634 |
+| ottawashooting | fine-tuned, val-tuned recall at P>=min | 1,096 | 30.5% | 125 | 0.552 | 0.183 | 0.275 | 0.658 |
+
+Clustering quality on each held-out event (agglomerative, rumour source tweets, reference = annotated rumour story). These do not depend on the NLI model.
+
+| Held out | Claims | Clusters | Reference stories | Silhouette (cosine) | Davies-Bouldin | ARI | NMI | Homogeneity | Completeness | V-measure | Fowlkes-Mallows |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| germanwings-crash | 238 | 15 | 19 | 0.248 | 1.708 | 0.395 | 0.694 | 0.629 | 0.774 | 0.694 | 0.503 |
+| sydneysiege | 520 | 34 | 61 | 0.174 | 1.740 | 0.145 | 0.559 | 0.480 | 0.668 | 0.559 | 0.262 |
+| charliehebdo | 458 | 26 | 60 | 0.184 | 1.656 | 0.089 | 0.561 | 0.450 | 0.745 | 0.561 | 0.214 |
+| ottawashooting | 470 | 26 | 51 | 0.230 | 1.840 | 0.471 | 0.713 | 0.669 | 0.764 | 0.713 | 0.524 |
+
+| Mean over folds | Pipeline P | Pipeline R | Pipeline F1 |
+|---|---|---|---|
+| zero-shot, default (min, 0.9) | 0.634 | 0.118 | 0.192 |
+| zero-shot, val-tuned best F1 | 0.545 | 0.281 | 0.334 |
+| zero-shot, val-tuned recall at P>=min | 0.519 | 0.182 | 0.251 |
+| fine-tuned, val-tuned best F1 | 0.623 | 0.357 | 0.425 |
+| fine-tuned, val-tuned recall at P>=min | 0.622 | 0.348 | 0.419 |
+
+### Direction rule for the demo (validation events only, threshold 0.50)
+
+Each fold's fine-tuned model on its validation event; the test events are not used.
+
+| Rule (mean of 4 validation events) | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|
+| max_contradiction | 0.699 | 0.606 | 0.641 | 0.694 | 10.3% / 8.1% / 60.6% |
+| mean | 0.737 | 0.532 | 0.616 | 0.688 | 6.5% / 6.1% / 53.2% |
+| min_contradiction | 0.770 | 0.424 | 0.547 | 0.667 | 3.7% / 4.0% / 42.4% |
+
+| Fold model | Rule | Contr. P | Contr. R | Contr. F1 | Entailment flag rate |
+|---|---|---|---|---|---|
+| germanwings-crash (validation: sydneysiege) | max_contradiction | 0.548 | 0.486 | 0.515 | 9.9% |
+| germanwings-crash (validation: sydneysiege) | mean | 0.603 | 0.435 | 0.505 | 5.7% |
+| germanwings-crash (validation: sydneysiege) | min_contradiction | 0.612 | 0.344 | 0.440 | 3.0% |
+| sydneysiege (validation: ottawashooting) | max_contradiction | 0.869 | 0.684 | 0.766 | 6.5% |
+| sydneysiege (validation: ottawashooting) | mean | 0.897 | 0.623 | 0.736 | 4.5% |
+| sydneysiege (validation: ottawashooting) | min_contradiction | 0.925 | 0.520 | 0.666 | 2.5% |
+| charliehebdo (validation: germanwings-crash) | max_contradiction | 0.536 | 0.673 | 0.597 | 23.1% |
+| charliehebdo (validation: germanwings-crash) | mean | 0.571 | 0.514 | 0.541 | 14.4% |
+| charliehebdo (validation: germanwings-crash) | min_contradiction | 0.640 | 0.339 | 0.443 | 8.3% |
+| ottawashooting (validation: charliehebdo) | max_contradiction | 0.844 | 0.581 | 0.688 | 1.6% |
+| ottawashooting (validation: charliehebdo) | mean | 0.878 | 0.557 | 0.682 | 1.2% |
+| ottawashooting (validation: charliehebdo) | min_contradiction | 0.905 | 0.492 | 0.637 | 0.9% |
+
+### All-events demo model
+
+`finetuned/nli-deberta-v3-base-pheme-all`: 5,413 pairs, 1 epochs (median fold best epoch). Operating points (median of fold choices): best F1 `max_contradiction` at 0.50; recall at precision `max_contradiction` at 0.05. It has no held-out test set.
+
+## Evaluation validity (story-group bootstrap)
+
+Every PHEME RTE label follows from the pair's rumour stories, so pairs inside one (event, stories) group are not independent. Intervals below are 95% percentile intervals from 2,000 resamples of whole story groups within each event. Generated by `python -m evaluation.validity`; per-pair predictions are in `reports/results/pair_predictions_*.csv.gz`.
+
+### How many independent units the labelled pairs contain
+
+| Event | Pairs | Story groups | Groups with mixed labels | Contradiction groups | Contradiction pairs | Largest contradiction group |
+|---|---|---|---|---|---|---|
+| charliehebdo | 1,936 | 31 | 0 | 7 | 427 | 60.0% |
+| germanwings-crash | 1,163 | 5 | 0 | 1 | 257 | 100.0% |
+| ottawashooting | 1,100 | 22 | 0 | 6 | 377 | 79.6% |
+| sydneysiege | 1,214 | 27 | 0 | 7 | 317 | 32.8% |
+| all | 5,413 | 85 | 0 | 21 | 1,378 | 21.8% |
+
+### Every labelled pair, zero-shot `cross-encoder/nli-deberta-v3-base` (threshold 0.9)
+
+Width of the F1 interval for `nli_min_contradiction@0.9`: resampling pairs 0.050, resampling story groups 0.434.
+
+| System | Flag rate | Contr. P | Contr. R | Contr. F1 | AP |
+|---|---|---|---|---|---|
+| nli_max_contradiction@0.9 | 31.9% | 0.452 [0.197, 0.676] | 0.565 [0.360, 0.775] | 0.502 [0.266, 0.678] | 0.475 [0.175, 0.737] |
+| nli_mean@0.9 | 14.4% | 0.615 [0.254, 0.832] | 0.347 [0.161, 0.567] | 0.444 [0.206, 0.643] | 0.537 [0.206, 0.776] |
+| nli_min_contradiction@0.9 | 13.6% | 0.619 [0.251, 0.835] | 0.329 [0.149, 0.546] | 0.430 [0.196, 0.630] | 0.532 [0.208, 0.768] |
+| pipeline_agglomerative | 4.9% | 0.672 [0.318, 0.896] | 0.129 [0.063, 0.186] | 0.217 [0.109, 0.297] | 0.417 [0.218, 0.619] |
+| flag_all | 100.0% | 0.255 [0.113, 0.432] | 1.000 [1.000, 1.000] | 0.406 [0.203, 0.603] | n/a |
+| random_at_system_flag_rate | 13.5% | 0.269 [0.117, 0.457] | 0.142 [0.115, 0.156] | 0.186 [0.122, 0.222] | n/a |
+| cue_negation | 7.4% | 0.225 [0.045, 0.533] | 0.065 [0.021, 0.102] | 0.101 [0.030, 0.156] | n/a |
+| cue_number | 19.2% | 0.535 [0.106, 0.805] | 0.404 [0.087, 0.678] | 0.460 [0.089, 0.696] | n/a |
+| cue_antonym | 2.0% | 0.542 [0.111, 0.838] | 0.042 [0.007, 0.083] | 0.078 [0.013, 0.147] | n/a |
+| cue_union | 26.5% | 0.467 [0.157, 0.714] | 0.485 [0.222, 0.710] | 0.476 [0.185, 0.676] | n/a |
+| tfidf_cosine | n/a | n/a | n/a | n/a | 0.253 [0.112, 0.443] |
+| story_oracle_diagnostic | n/a | n/a | n/a | n/a | 0.675 [0.442, 0.843] |
+
+| Paired difference | Δ precision | Δ recall | Δ F1 |
+|---|---|---|---|
+| nli_min_contradiction@0.9 - flag_all | +0.364 [+0.099, +0.515] | -0.671 [-0.851, -0.454] | +0.024 [-0.220, +0.254] |
+| nli_min_contradiction@0.9 - cue_union | +0.152 [-0.186, +0.429] | -0.156 [-0.526, +0.242] | -0.046 [-0.392, +0.319] |
+| pipeline_agglomerative - nli_min_contradiction@0.9 | +0.053 [-0.109, +0.291] | -0.200 [-0.401, -0.049] | -0.213 [-0.391, -0.024] |
+
+### Fine-tuning, held-out events, with baselines
+
+Each pair is scored by its own fold's model at that fold's validation-chosen operating point. Baseline thresholds (cosine, oracle) are also chosen on the validation event. Pooled = all four held-out events together.
+
+| System (pooled) | Flag rate | Contr. P | Contr. R | Contr. F1 | AP |
+|---|---|---|---|---|---|
+| zero-shot, default (min, 0.9) | 13.6% | 0.619 [0.251, 0.835] | 0.329 [0.149, 0.546] | 0.430 [0.196, 0.630] | 0.532 [0.208, 0.768] |
+| zero-shot, val-tuned best F1 | 35.3% | 0.424 [0.165, 0.668] | 0.588 [0.356, 0.785] | 0.492 [0.237, 0.678] | 0.476 [0.165, 0.741] |
+| fine-tuned, val-tuned best F1 | 25.7% | 0.613 [0.289, 0.808] | 0.618 [0.414, 0.752] | 0.615 [0.347, 0.747] | 0.508 [0.199, 0.766] |
+| flag every pair | 100.0% | 0.255 [0.113, 0.432] | 1.000 [1.000, 1.000] | 0.406 [0.203, 0.603] | n/a |
+| random at the fine-tuned flag rate | 26.0% | 0.267 [0.101, 0.471] | 0.272 [0.209, 0.329] | 0.269 [0.137, 0.370] | n/a |
+| cue: negation mismatch | 7.4% | 0.225 [0.045, 0.533] | 0.065 [0.021, 0.102] | 0.101 [0.030, 0.156] | n/a |
+| cue: number mismatch | 19.2% | 0.535 [0.106, 0.805] | 0.404 [0.087, 0.678] | 0.460 [0.089, 0.696] | n/a |
+| cue: antonym pair | 2.0% | 0.542 [0.111, 0.838] | 0.042 [0.007, 0.083] | 0.078 [0.013, 0.147] | n/a |
+| cue: any of the three | 26.5% | 0.467 [0.157, 0.714] | 0.485 [0.222, 0.710] | 0.476 [0.185, 0.676] | n/a |
+| TF-IDF cosine, val-tuned | 79.1% | 0.275 [0.124, 0.464] | 0.854 [0.796, 0.947] | 0.416 [0.217, 0.600] | 0.255 [0.114, 0.445] |
+| story oracle (diagnostic, reads the labels' structure) | 37.6% | 0.529 [0.295, 0.761] | 0.781 [0.713, 0.866] | 0.631 [0.432, 0.767] | 0.676 [0.444, 0.843] |
+
+Contradiction F1 per held-out event:
+
+| Held out | Contradiction groups | Zero-shot default | Zero-shot val-tuned | Fine-tuned | Flag all | Cue union | Story oracle |
+|---|---|---|---|---|---|---|---|
+| germanwings-crash | 1 | 0.159 [0.152, 0.170] | 0.338 [0.314, 0.438] | 0.620 [0.535, 0.913] | 0.362 [0.262, 0.886] | 0.518 [0.444, 0.897] | 0.606 [0.466, 0.865] |
+| sydneysiege | 7 | 0.273 [0.047, 0.436] | 0.324 [0.060, 0.515] | 0.465 [0.188, 0.656] | 0.414 [0.130, 0.748] | 0.451 [0.014, 0.726] | 0.565 [0.210, 0.871] |
+| charliehebdo | 7 | 0.294 [0.078, 0.375] | 0.447 [0.081, 0.667] | 0.651 [0.215, 0.808] | 0.361 [0.043, 0.649] | 0.569 [0.155, 0.732] | 0.642 [0.135, 0.843] |
+| ottawashooting | 6 | 0.761 [0.000, 0.858] | 0.688 [0.000, 0.922] | 0.692 [0.114, 0.784] | 0.510 [0.021, 0.842] | 0.286 [0.018, 0.372] | 0.726 [0.214, 0.870] |
+
+Paired differences (same resamples for both systems):
+
+| Scope | Comparison | Δ F1 | Δ AP | Δ recall |
+|---|---|---|---|---|
+| pooled | finetuned_best_f1 - zero_shot_val_best_f1 | +0.123 [-0.075, +0.346] | +0.032 [-0.260, +0.357] | +0.030 [-0.248, +0.334] |
+| pooled | finetuned_best_f1 - zero_shot_default | +0.185 [-0.076, +0.461] | -0.024 [-0.299, +0.307] | +0.288 [+0.008, +0.553] |
+| pooled | finetuned_best_f1 - cue_union | +0.139 [+0.027, +0.271] | n/a | +0.132 [-0.021, +0.284] |
+| pooled | finetuned_best_f1 - story_oracle_diagnostic | -0.015 [-0.224, +0.130] | -0.168 [-0.387, +0.043] | -0.163 [-0.429, -0.018] |
+| pooled | zero_shot_default - flag_all | +0.024 [-0.220, +0.254] | n/a | -0.671 [-0.851, -0.454] |
+| germanwings-crash | finetuned_best_f1 - zero_shot_val_best_f1 | +0.282 [+0.194, +0.478] | +0.143 [-0.047, +0.410] | +0.626 [+0.626, +0.626] |
+| germanwings-crash | finetuned_best_f1 - zero_shot_default | +0.460 [+0.371, +0.745] | +0.090 [-0.090, +0.342] | +0.829 [+0.829, +0.829] |
+| germanwings-crash | finetuned_best_f1 - cue_union | +0.102 [+0.015, +0.184] | n/a | -0.027 [-0.027, -0.027] |
+| germanwings-crash | finetuned_best_f1 - story_oracle_diagnostic | +0.014 [-0.272, +0.229] | -0.136 [-0.486, +0.179] | +0.160 [+0.160, +0.160] |
+| sydneysiege | finetuned_best_f1 - zero_shot_val_best_f1 | +0.140 [+0.064, +0.224] | +0.034 [-0.070, +0.138] | +0.177 [+0.114, +0.294] |
+| sydneysiege | finetuned_best_f1 - zero_shot_default | +0.192 [+0.092, +0.264] | +0.041 [-0.073, +0.145] | +0.230 [+0.133, +0.342] |
+| sydneysiege | finetuned_best_f1 - cue_union | +0.014 [-0.106, +0.234] | n/a | -0.025 [-0.180, +0.249] |
+| sydneysiege | finetuned_best_f1 - story_oracle_diagnostic | -0.100 [-0.488, +0.166] | -0.176 [-0.476, +0.110] | -0.467 [-0.759, -0.216] |
+| charliehebdo | finetuned_best_f1 - zero_shot_val_best_f1 | +0.204 [-0.176, +0.430] | +0.425 [+0.043, +0.687] | -0.124 [-0.584, +0.100] |
+| charliehebdo | finetuned_best_f1 - zero_shot_default | +0.357 [+0.015, +0.498] | +0.365 [+0.012, +0.632] | +0.342 [-0.018, +0.583] |
+| charliehebdo | finetuned_best_f1 - cue_union | +0.082 [-0.022, +0.216] | n/a | +0.070 [-0.041, +0.238] |
+| charliehebdo | finetuned_best_f1 - story_oracle_diagnostic | +0.009 [-0.402, +0.303] | -0.004 [-0.377, +0.566] | -0.237 [-0.687, +0.133] |
+| ottawashooting | finetuned_best_f1 - zero_shot_val_best_f1 | +0.004 [-0.169, +0.378] | -0.026 [-0.115, +0.669] | -0.326 [-0.462, +0.500] |
+| ottawashooting | finetuned_best_f1 - zero_shot_default | -0.069 [-0.120, +0.266] | -0.061 [-0.128, +0.582] | -0.093 [-0.155, +0.600] |
+| ottawashooting | finetuned_best_f1 - cue_union | +0.405 [-0.046, +0.670] | n/a | +0.443 [-0.250, +0.903] |
+| ottawashooting | finetuned_best_f1 - story_oracle_diagnostic | -0.034 [-0.428, +0.197] | +0.005 [-0.581, +0.488] | -0.045 [-0.510, +0.219] |
+
+Pooled fine-tuned minus zero-shot val-tuned F1, leaving one event out:
+
+| Subset | Fine-tuned F1 | Zero-shot val-tuned F1 | Δ F1 |
+|---|---|---|---|
+| without germanwings-crash | 0.613 | 0.517 | 0.096 |
+| without sydneysiege | 0.653 | 0.519 | 0.134 |
+| without charliehebdo | 0.602 | 0.523 | 0.078 |
+| without ottawashooting | 0.590 | 0.401 | 0.189 |
+
+### Cluster level: is it more than cluster size?
+
+The size baselines flag the k largest clusters, with k = the detector's own flag count. Clusters are resampled within each event.
+
+| System | Precision | Recall | F1 | AP |
+|---|---|---|---|---|
+| detector | 0.434 [0.298, 0.560] | 0.821 [0.667, 0.957] | 0.568 [0.420, 0.688] | 0.381 [0.267, 0.546] |
+| flag_all | 0.275 [0.196, 0.363] | 1.000 [1.000, 1.000] | 0.431 [0.328, 0.532] | n/a |
+| top_k_by_size | 0.396 [0.265, 0.528] | 0.750 [0.577, 0.900] | 0.519 [0.373, 0.643] | 0.680 [0.504, 0.820] |
+| top_k_by_pairs_scored | 0.396 [0.265, 0.528] | 0.750 [0.577, 0.900] | 0.519 [0.373, 0.643] | 0.635 [0.442, 0.806] |
+
+| Paired difference | Δ F1 |
+|---|---|
+| detector - flag_all | +0.137 [+0.038, +0.226] |
+| detector - top_k_by_size | +0.049 [-0.022, +0.127] |
+| detector - top_k_by_pairs_scored | +0.049 [-0.022, +0.127] |
+
+Cluster ranking AP against the proxy: disagreement score 0.381, max contradiction 0.639, size 0.680, pairs scored 0.635.
+
+## Witness-style probes (text layer around NLI)
+
+Hand-written checks from the adversarial review, run through the real pipeline (`python -m evaluation.witness_probes --tag <name>`). They show failure modes and regressions, not error rates. Rows are in the order the changes were applied.
+
+| Run | NLI model | Text layer | Passed | first_person | first_person_control | control | splitter | truncation | example |
+|---|---|---|---|---|---|---|---|---|---|
+| 0_before | nli-deberta-v3-base | split=simple, max words=None, ground=False | 13/23 | 0/3 | 2/2 | 2/2 | 5/10 | 4/5 | 0/1 |
+| 1_splitter | nli-deberta-v3-base | split=abbrev, max words=None, ground=False | 18/23 | 0/3 | 2/2 | 2/2 | 10/10 | 4/5 | 0/1 |
+| 2_clauses | nli-deberta-v3-base | split=abbrev, max words=40, ground=False | 19/23 | 0/3 | 2/2 | 2/2 | 10/10 | 5/5 | 0/1 |
+| 3_grounding_perception | nli-deberta-v3-base | split=abbrev, max words=40, ground=True | 21/23 | 2/3 | 2/2 | 2/2 | 10/10 | 5/5 | 0/1 |
+| 5_finetuned_before | nli-deberta-v3-base-pheme-all | split=simple, max words=None, ground=False | 14/23 | 0/3 | 2/2 | 2/2 | 5/10 | 4/5 | 1/1 |
+| 6_finetuned_after | nli-deberta-v3-base-pheme-all | split=abbrev, max words=40, ground=True | 22/23 | 2/3 | 2/2 | 2/2 | 10/10 | 5/5 | 1/1 |
+
 ## Per-event reports on all source tweets
 
 | Event | Claims | Clusters | Unclustered | Pairs scored | All pairs would be | Flagged clusters |
@@ -135,4 +405,4 @@ Default configuration: `sentence-transformers/all-MiniLM-L6-v2|agglomerative`, t
 
 ## Run
 
-Device: NVIDIA GeForce RTX 4050 Laptop GPU. Stage timings in seconds (warm caches make these much shorter than a first run): {'nli': 0.7, 'rte': 41.2, 'clustering': 67.8, 'pipeline': 91.0, 'reports': 41.0}.
+Device: NVIDIA GeForce RTX 4050 Laptop GPU. Stage timings in seconds (warm caches make these much shorter than a first run): {'pipeline': 115.0}.

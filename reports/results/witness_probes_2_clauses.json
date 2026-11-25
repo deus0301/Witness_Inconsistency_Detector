@@ -1,0 +1,580 @@
+{
+  "nli_model": "cross-encoder/nli-deberta-v3-base",
+  "settings": {
+    "nli": {
+      "batch_size": 64,
+      "max_length": 128,
+      "aggregation": "min_contradiction",
+      "fp16": true,
+      "ground_speaker": false
+    },
+    "threshold": 0.9,
+    "data": {
+      "sentence_splitter": "abbrev",
+      "max_claim_words": 40
+    }
+  },
+  "n_truncated_inputs": 0,
+  "summary": {
+    "passed": 19,
+    "checks": 23,
+    "by_type": {
+      "first_person": {
+        "passed": 0,
+        "checks": 3
+      },
+      "first_person_control": {
+        "passed": 2,
+        "checks": 2
+      },
+      "control": {
+        "passed": 2,
+        "checks": 2
+      },
+      "splitter": {
+        "passed": 10,
+        "checks": 10
+      },
+      "truncation": {
+        "passed": 5,
+        "checks": 5
+      },
+      "example": {
+        "passed": 0,
+        "checks": 1
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "first_person_location",
+      "type": "first_person",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I was inside the shop when it happened.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "I was outside on the pavement when it happened.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'inside the shop' vs 'outside on the pavement'",
+          "p_contradiction": 0.9999634027481079,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "first_person_car",
+      "type": "first_person",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "My car was parked outside the bank.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "My car was in the garage all day.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'parked outside the bank' vs 'in the garage'",
+          "p_contradiction": 0.9999300241470337,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "first_person_position",
+      "type": "first_person",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I was standing at the bus stop when the van came past.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "I was sitting in my car at the lights when the van came past.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'standing at the bus stop' vs 'sitting in my car'",
+          "p_contradiction": 0.9999325275421143,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    },
+    {
+      "name": "first_person_shots_disagree",
+      "type": "first_person_control",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I heard two shots from the alley.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "I heard three shots from the alley.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'two shots' vs 'three shots'",
+          "p_contradiction": 0.9993834495544434,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "first_person_saw_vs_denial",
+      "type": "first_person_control",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I saw the driver stop at the crossing.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The driver did not stop at the crossing.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'saw the driver stop' vs 'did not stop'",
+          "p_contradiction": 0.9998785257339478,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "plain_conflicts",
+      "type": "control",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The light was red when the blue car went through.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "The van was white.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness B",
+          "text": "The light was green when the blue car went through.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The van was black.",
+          "nli_text": null,
+          "cluster": 1
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'light was red' vs 'light was green'",
+          "p_contradiction": 0.9997095465660095,
+          "compared": true,
+          "pass": true
+        },
+        {
+          "check": "flag: 'van was white' vs 'van was black'",
+          "p_contradiction": 0.9993504881858826,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 2,
+      "n_checks": 2
+    },
+    {
+      "name": "abbreviations_and_times",
+      "type": "splitter",
+      "claims": [
+        {
+          "account": "Witness C",
+          "text": "It was approx. 10 p.m. when it started.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness C",
+          "text": "The van was parked on St. James Street.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness C",
+          "text": "Dr. Patel arrived first.",
+          "nli_text": null,
+          "cluster": 2
+        },
+        {
+          "account": "Witness D",
+          "text": "It was around 6 p.m. when it started.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness D",
+          "text": "The van was parked on Kings Road.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness D",
+          "text": "Dr. Patel arrived last.",
+          "nli_text": null,
+          "cluster": 2
+        }
+      ],
+      "checks": [
+        {
+          "check": "claim contains '10 p.m.'",
+          "pass": true
+        },
+        {
+          "check": "claim contains 'St. James Street'",
+          "pass": true
+        },
+        {
+          "check": "claim contains 'Dr. Patel arrived first'",
+          "pass": true
+        },
+        {
+          "check": "no fragment claims",
+          "pass": true,
+          "fragments": []
+        },
+        {
+          "check": "flag: '10 p.m.' vs '6 p.m.'",
+          "p_contradiction": 0.9961732029914856,
+          "compared": true,
+          "pass": true
+        },
+        {
+          "check": "flag: 'arrived first' vs 'arrived last'",
+          "p_contradiction": 0.9998354911804199,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 6,
+      "n_checks": 6
+    },
+    {
+      "name": "abbreviations_misc",
+      "type": "splitter",
+      "claims": [
+        {
+          "account": "Witness E",
+          "text": "Mr. Hale left at 9 a.m. on Monday.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness E",
+          "text": "He drove approx. 3.5 miles to the depot.",
+          "nli_text": null,
+          "cluster": -1
+        },
+        {
+          "account": "Witness F",
+          "text": "Mr. Hale was at home all of Monday morning.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "claim contains 'Mr. Hale left at 9 a.m.'",
+          "pass": true
+        },
+        {
+          "check": "claim contains '3.5 miles'",
+          "pass": true
+        },
+        {
+          "check": "no fragment claims",
+          "pass": true,
+          "fragments": []
+        },
+        {
+          "check": "flag: 'Hale left at 9 a.m.' vs 'at home all of Monday morning'",
+          "p_contradiction": 0.9977805018424988,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 4,
+      "n_checks": 4
+    },
+    {
+      "name": "long_run_on_statement",
+      "type": "truncation",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I was walking my dog along the canal path at the time and I heard a loud bang which I first thought was a firework",
+          "nli_text": null,
+          "cluster": -1
+        },
+        {
+          "account": "Witness A",
+          "text": "I turned around towards the junction near the bakery and the pharmacy and I saw that the blue car had hit the cyclist, the cyclist was lying on the ground near the kerb with his bike under him",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "a woman in a yellow coat ran over to help him and somebody else was shouting for an ambulance, the driver of the blue car got out and looked at the bike for a few seconds",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "he got back into the car and drove off towards the bridge.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The driver stayed with the cyclist until the police arrived.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "claim contains 'drove off towards the bridge'",
+          "pass": true
+        },
+        {
+          "check": "flag: 'drove off towards the bridge' vs 'stayed with the cyclist'",
+          "p_contradiction": 0.9962695837020874,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 2,
+      "n_checks": 2
+    },
+    {
+      "name": "two_long_accounts_differ_at_end",
+      "type": "truncation",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "I was walking along the canal path at the time and I heard a loud bang which I first thought was a firework",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness A",
+          "text": "I turned around towards the junction near the bakery and the pharmacy and I saw that the blue car had hit the cyclist, the cyclist was lying on the ground near the kerb with his bike under him",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "a woman in a yellow coat ran over to help him and somebody else was shouting for an ambulance, the driver of the blue car got out and looked at the bike for a few seconds",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "he got back into the car and drove off towards the bridge without stopping.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "I was walking along the canal path at the time and I heard a loud bang which I first thought was a firework",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness B",
+          "text": "I turned around towards the junction near the bakery and the pharmacy and I saw that the blue car had hit the cyclist, the cyclist was lying on the ground near the kerb with his bike under him",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "a woman in a yellow coat ran over to help him and somebody else was shouting for an ambulance, the driver of the blue car got out and looked at the bike for a few seconds",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "he stayed next to the cyclist until the police arrived.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "flag: 'drove off towards the bridge' vs 'stayed next to the cyclist'",
+          "p_contradiction": 0.9999535083770752,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 1,
+      "n_checks": 1
+    },
+    {
+      "name": "long_run_on_agreement",
+      "type": "truncation",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "We had just come out of the cinema on the high street and were standing by the cash machine talking about where to eat, and my friend was checking her phone, and a bus went past quite slowly",
+          "nli_text": null,
+          "cluster": -1
+        },
+        {
+          "account": "Witness A",
+          "text": "there was shouting from across the road near the taxi rank, and a man in a grey hoodie ran past us towards the station holding a black rucksack.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "A man in a grey hoodie ran towards the station.",
+          "nli_text": null,
+          "cluster": 0
+        }
+      ],
+      "checks": [
+        {
+          "check": "claim contains 'grey hoodie ran past us towards the station'",
+          "pass": true
+        },
+        {
+          "check": "no_flag: 'grey hoodie ran past us' vs 'grey hoodie ran towards the station'",
+          "p_contradiction": 5.4840264056110755e-05,
+          "compared": true,
+          "pass": true
+        }
+      ],
+      "n_pass": 2,
+      "n_checks": 2
+    },
+    {
+      "name": "example_file",
+      "type": "example",
+      "claims": [
+        {
+          "account": "Witness A",
+          "text": "The blue car ran the red light and hit the cyclist.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness A",
+          "text": "The driver stayed at the scene.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness A",
+          "text": "It was raining heavily.",
+          "nli_text": null,
+          "cluster": 2
+        },
+        {
+          "account": "Witness B",
+          "text": "The light was green when the blue car went through.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The cyclist came out of a side street.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness B",
+          "text": "The driver did not stay at the scene, he drove off.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness C",
+          "text": "A blue car hit a cyclist at the junction.",
+          "nli_text": null,
+          "cluster": 0
+        },
+        {
+          "account": "Witness C",
+          "text": "The driver got out and called an ambulance.",
+          "nli_text": null,
+          "cluster": 1
+        },
+        {
+          "account": "Witness C",
+          "text": "The road was dry.",
+          "nli_text": null,
+          "cluster": 2
+        }
+      ],
+      "checks": [
+        {
+          "check": "no_flag: 'stayed at the scene' vs 'called an ambulance'",
+          "p_contradiction": 0.9962502121925354,
+          "compared": true,
+          "pass": false
+        }
+      ],
+      "n_pass": 0,
+      "n_checks": 1
+    }
+  ]
+}

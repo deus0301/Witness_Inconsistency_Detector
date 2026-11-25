@@ -2,27 +2,15 @@
   "sample_mode": false,
   "mock_models": false,
   "stages": [
-    "nli",
-    "rte",
-    "clustering",
-    "pipeline",
-    "reports"
+    "pipeline"
   ],
   "timings_seconds": {
-    "nli": 0.7,
-    "rte": 41.2,
-    "clustering": 67.8,
-    "pipeline": 91.0,
-    "reports": 41.0
+    "pipeline": 115.0
   },
   "figures": [
     "clustering_ari.png",
     "clustering_nmi.png",
     "clustering_silhouette.png",
-    "clusters_charliehebdo.png",
-    "clusters_germanwings-crash.png",
-    "clusters_ottawashooting.png",
-    "clusters_sydneysiege.png",
     "confusion_mnli_dev_matched_nli-deberta-v3-base.png",
     "confusion_mnli_dev_mismatched_nli-deberta-v3-base.png",
     "confusion_pheme_proxy_nli-deberta-v3-base.png",
@@ -39,14 +27,6 @@
     "eval_heatmap_germanwings-crash.png",
     "eval_heatmap_ottawashooting.png",
     "eval_heatmap_sydneysiege.png",
-    "graph_charliehebdo.png",
-    "graph_germanwings-crash.png",
-    "graph_ottawashooting.png",
-    "graph_sydneysiege.png",
-    "heatmap_charliehebdo.png",
-    "heatmap_germanwings-crash.png",
-    "heatmap_ottawashooting.png",
-    "heatmap_sydneysiege.png",
     "pair_precision.png",
     "pairs_compared.png",
     "rte_flag_rates.png",
@@ -73,8 +53,8 @@
     "germanwings-crash": 233
   },
   "nli_cache": {
-    "model_calls": 23016,
-    "cache_hits": 1489333
+    "model_calls": 0,
+    "cache_hits": 1390942
   },
   "device": "NVIDIA GeForce RTX 4050 Laptop GPU"
 }

@@ -666,7 +666,7 @@
           }
         }
       },
-      "seconds": 3.2
+      "seconds": 22.0
     },
     "sentence-transformers/all-MiniLM-L6-v2|kmeans": {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -925,7 +925,7 @@
           }
         }
       },
-      "seconds": 22.6
+      "seconds": 22.9
     },
     "sentence-transformers/all-MiniLM-L6-v2|agglomerative": {
       "embedding": "sentence-transformers/all-MiniLM-L6-v2",
@@ -1443,7 +1443,7 @@
           }
         }
       },
-      "seconds": 1.0
+      "seconds": 1.5
     },
     "sentence-transformers/all-mpnet-base-v2|hdbscan": {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -1702,7 +1702,7 @@
           }
         }
       },
-      "seconds": 3.3
+      "seconds": 3.1
     },
     "sentence-transformers/all-mpnet-base-v2|kmeans": {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -1961,7 +1961,7 @@
           }
         }
       },
-      "seconds": 39.5
+      "seconds": 38.1
     },
     "sentence-transformers/all-mpnet-base-v2|agglomerative": {
       "embedding": "sentence-transformers/all-mpnet-base-v2",
@@ -2497,6 +2497,16 @@
       "precision": 0.0,
       "recall": 0.0,
       "f1": 0.0
+    },
+    "top_k_by_size_at_system_flag_count": {
+      "precision": 0.39622641509433965,
+      "recall": 0.75,
+      "f1": 0.5185185185185185
+    },
+    "top_k_by_pairs_scored_at_system_flag_count": {
+      "precision": 0.39622641509433965,
+      "recall": 0.75,
+      "f1": 0.5185185185185185
     }
   },
   "no_clustering_baseline": {
@@ -2665,6 +2675,1217 @@
         }
       }
     },
-    "seconds": 16.9
-  }
+    "seconds": 17.4
+  },
+  "cluster_level_ranking_ap": {
+    "disagreement_score": 0.3807486904688854,
+    "max_contradiction": 0.6390662390036155,
+    "size": 0.6804463561502075,
+    "pairs_scored": 0.6351648781889798
+  },
+  "cluster_level_bootstrap": {
+    "n_boot": 2000,
+    "unit": "story group within event",
+    "n_groups": 102,
+    "systems": {
+      "detector": {
+        "precision": {
+          "value": 0.4339622641509434,
+          "lo": 0.2982456140350877,
+          "hi": 0.5600350877192981,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 0.8214285714285714,
+          "lo": 0.6666666666666666,
+          "hi": 0.9565217391304348,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.5679012345679013,
+          "lo": 0.4197530864197531,
+          "hi": 0.6881720430107526,
+          "kept": 1.0
+        },
+        "ap": {
+          "value": 0.3807486904688854,
+          "lo": 0.2674589454487235,
+          "hi": 0.5455568228277354,
+          "kept": 1.0
+        },
+        "flag_rate": 0.5196078431372549
+      },
+      "flag_all": {
+        "precision": {
+          "value": 0.27450980392156865,
+          "lo": 0.19607843137254902,
+          "hi": 0.3627450980392157,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 1.0,
+          "lo": 1.0,
+          "hi": 1.0,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.43076923076923085,
+          "lo": 0.3278688524590164,
+          "hi": 0.5323741007194245,
+          "kept": 1.0
+        },
+        "flag_rate": 1.0
+      },
+      "top_k_by_size": {
+        "precision": {
+          "value": 0.39622641509433965,
+          "lo": 0.26527724297266075,
+          "hi": 0.5283018867924528,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 0.75,
+          "lo": 0.5769230769230769,
+          "hi": 0.9000806451612899,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.5185185185185185,
+          "lo": 0.37333333333333335,
+          "hi": 0.6428571428571429,
+          "kept": 1.0
+        },
+        "ap": {
+          "value": 0.6804463561502075,
+          "lo": 0.5035251372119699,
+          "hi": 0.8198283793589888,
+          "kept": 1.0
+        },
+        "flag_rate": 0.5196078431372549
+      },
+      "top_k_by_pairs_scored": {
+        "precision": {
+          "value": 0.39622641509433965,
+          "lo": 0.26527724297266075,
+          "hi": 0.5283018867924528,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 0.75,
+          "lo": 0.5769230769230769,
+          "hi": 0.9000806451612899,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.5185185185185185,
+          "lo": 0.37333333333333335,
+          "hi": 0.6428571428571429,
+          "kept": 1.0
+        },
+        "ap": {
+          "value": 0.6351648781889798,
+          "lo": 0.44234266821303164,
+          "hi": 0.8062358073136221,
+          "kept": 1.0
+        },
+        "flag_rate": 0.5196078431372549
+      }
+    },
+    "deltas": {
+      "detector - flag_all": {
+        "precision": {
+          "value": 0.15945246022937476,
+          "lo": 0.07538462720511403,
+          "hi": 0.24068763616557737,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": -0.1785714285714286,
+          "lo": -0.33333333333333337,
+          "hi": -0.04347826086956519,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.13713200379867047,
+          "lo": 0.03826281357028585,
+          "hi": 0.22570199535857294,
+          "kept": 1.0
+        }
+      },
+      "detector - top_k_by_size": {
+        "precision": {
+          "value": 0.037735849056603765,
+          "lo": -0.03652430320787321,
+          "hi": 0.11390610228776701,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 0.0714285714285714,
+          "lo": 0.0,
+          "hi": 0.1785714285714286,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.049382716049382824,
+          "lo": -0.022346705805609796,
+          "hi": 0.12698412698412703,
+          "kept": 1.0
+        },
+        "ap": {
+          "value": -0.29969766568132217,
+          "lo": -0.4451072465200975,
+          "hi": -0.11463050145980992,
+          "kept": 1.0
+        }
+      },
+      "detector - top_k_by_pairs_scored": {
+        "precision": {
+          "value": 0.037735849056603765,
+          "lo": -0.03652430320787321,
+          "hi": 0.11390610228776701,
+          "kept": 1.0
+        },
+        "recall": {
+          "value": 0.0714285714285714,
+          "lo": 0.0,
+          "hi": 0.1785714285714286,
+          "kept": 1.0
+        },
+        "f1": {
+          "value": 0.049382716049382824,
+          "lo": -0.022346705805609796,
+          "hi": 0.12698412698412703,
+          "kept": 1.0
+        },
+        "ap": {
+          "value": -0.25441618772009444,
+          "lo": -0.42430444191128397,
+          "hi": -0.05547686869771762,
+          "kept": 1.0
+        }
+      }
+    }
+  },
+  "default_cluster_records": [
+    {
+      "event": "ottawashooting",
+      "cluster_id": 0,
+      "size": 83,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9999146461486816,
+      "disagreement_score": 0.5774573230743408
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 1,
+      "size": 77,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9997336268424988,
+      "disagreement_score": 0.5648668134212493
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 2,
+      "size": 63,
+      "n_pairs_scored": 400,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9992456436157227,
+      "disagreement_score": 0.5071228218078613
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 3,
+      "size": 40,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9963178634643555,
+      "disagreement_score": 0.5069089317321778
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 4,
+      "size": 31,
+      "n_pairs_scored": 400,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9995558857917786,
+      "disagreement_score": 0.5997779428958893
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 5,
+      "size": 29,
+      "n_pairs_scored": 390,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9999004602432251,
+      "disagreement_score": 0.5858476660190485
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 6,
+      "size": 18,
+      "n_pairs_scored": 151,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9979105591773987,
+      "disagreement_score": 0.5155115709794278
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 7,
+      "size": 15,
+      "n_pairs_scored": 100,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.997711181640625,
+      "disagreement_score": 0.5488555908203125
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 8,
+      "size": 12,
+      "n_pairs_scored": 66,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0017722983611747622,
+      "disagreement_score": 0.0008861491805873811
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 9,
+      "size": 12,
+      "n_pairs_scored": 64,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.00445318128913641,
+      "disagreement_score": 0.002226590644568205
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 10,
+      "size": 10,
+      "n_pairs_scored": 42,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9984147548675537,
+      "disagreement_score": 0.5230169012433007
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 11,
+      "size": 8,
+      "n_pairs_scored": 26,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.002253343816846609,
+      "disagreement_score": 0.0011266719084233046
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 12,
+      "size": 8,
+      "n_pairs_scored": 28,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9849593043327332,
+      "disagreement_score": 0.5103367950235095
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 13,
+      "size": 7,
+      "n_pairs_scored": 15,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0004723895399365574,
+      "disagreement_score": 0.0002361947699682787
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 14,
+      "size": 6,
+      "n_pairs_scored": 14,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9996926784515381,
+      "disagreement_score": 0.6784177677971976
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 15,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9967709183692932,
+      "disagreement_score": 0.6650521258513132
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 16,
+      "size": 4,
+      "n_pairs_scored": 5,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9755871891975403,
+      "disagreement_score": 0.5877935945987701
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 17,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.00014096187078393996,
+      "disagreement_score": 7.048093539196998e-05
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 18,
+      "size": 3,
+      "n_pairs_scored": 2,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0006741876131854951,
+      "disagreement_score": 0.00033709380659274757
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 19,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0005743151414208114,
+      "disagreement_score": 0.0002871575707104057
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 20,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 5.9197187511017546e-05,
+      "disagreement_score": 2.9598593755508773e-05
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 21,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9390326738357544,
+      "disagreement_score": 0.6361830035845438
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 22,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0004622403939720243,
+      "disagreement_score": 0.00023112019698601216
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 23,
+      "size": 2,
+      "n_pairs_scored": 0,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0,
+      "disagreement_score": 0.0
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 24,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0013464662479236722,
+      "disagreement_score": 0.0006732331239618361
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 25,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0011863147374242544,
+      "disagreement_score": 0.0005931573687121272
+    },
+    {
+      "event": "ottawashooting",
+      "cluster_id": 26,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 3.0342696845764294e-05,
+      "disagreement_score": 1.5171348422882147e-05
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 0,
+      "size": 199,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9997478127479553,
+      "disagreement_score": 0.5398739063739777
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 1,
+      "size": 78,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996311664581299,
+      "disagreement_score": 0.523565583229065
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 2,
+      "size": 25,
+      "n_pairs_scored": 294,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996829032897949,
+      "disagreement_score": 0.5933788666108839
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 3,
+      "size": 19,
+      "n_pairs_scored": 166,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9998490810394287,
+      "disagreement_score": 0.5300450224474252
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 4,
+      "size": 19,
+      "n_pairs_scored": 168,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9974714517593384,
+      "disagreement_score": 0.5076642973082406
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 5,
+      "size": 16,
+      "n_pairs_scored": 115,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9989479184150696,
+      "disagreement_score": 0.6125174374684044
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 6,
+      "size": 16,
+      "n_pairs_scored": 119,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9995918869972229,
+      "disagreement_score": 0.5586194729103762
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 7,
+      "size": 14,
+      "n_pairs_scored": 87,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9996976852416992,
+      "disagreement_score": 0.6895040150346428
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 8,
+      "size": 12,
+      "n_pairs_scored": 66,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.002124464139342308,
+      "disagreement_score": 0.001062232069671154
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 9,
+      "size": 11,
+      "n_pairs_scored": 54,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9973791837692261,
+      "disagreement_score": 0.5820229252179464
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 10,
+      "size": 8,
+      "n_pairs_scored": 25,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996370077133179,
+      "disagreement_score": 0.7198185038566589
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 11,
+      "size": 8,
+      "n_pairs_scored": 27,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996964931488037,
+      "disagreement_score": 0.5739223206484759
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 12,
+      "size": 7,
+      "n_pairs_scored": 20,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9989045858383179,
+      "disagreement_score": 0.549452292919159
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 13,
+      "size": 6,
+      "n_pairs_scored": 15,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.07135427743196487,
+      "disagreement_score": 0.03567713871598244
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 14,
+      "size": 6,
+      "n_pairs_scored": 15,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9929735660552979,
+      "disagreement_score": 0.5298201163609823
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 15,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": true,
+      "flagged": false,
+      "max_contradiction": 0.012140591628849506,
+      "disagreement_score": 0.006070295814424753
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 16,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.050350237637758255,
+      "disagreement_score": 0.025175118818879128
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 17,
+      "size": 5,
+      "n_pairs_scored": 10,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9959445595741272,
+      "disagreement_score": 0.5479722797870636
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 18,
+      "size": 3,
+      "n_pairs_scored": 2,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.001569903688505292,
+      "disagreement_score": 0.000784951844252646
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 19,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0005367611884139478,
+      "disagreement_score": 0.0002683805942069739
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 20,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.014352508820593357,
+      "disagreement_score": 0.0071762544102966785
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 21,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9930015802383423,
+      "disagreement_score": 0.6631674567858378
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 22,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.001626975485123694,
+      "disagreement_score": 0.000813487742561847
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 23,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 9.517768921796232e-05,
+      "disagreement_score": 4.758884460898116e-05
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 24,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": true,
+      "flagged": false,
+      "max_contradiction": 0.007032572291791439,
+      "disagreement_score": 0.0035162861458957195
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 25,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9986066222190857,
+      "disagreement_score": 0.9993033111095428
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 26,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.06441289931535721,
+      "disagreement_score": 0.032206449657678604
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 27,
+      "size": 2,
+      "n_pairs_scored": 0,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0,
+      "disagreement_score": 0.0
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 28,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9995487332344055,
+      "disagreement_score": 0.9997743666172028
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 29,
+      "size": 2,
+      "n_pairs_scored": 0,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0,
+      "disagreement_score": 0.0
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 30,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0005591179360635579,
+      "disagreement_score": 0.00027955896803177893
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 31,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.025543155148625374,
+      "disagreement_score": 0.012771577574312687
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 32,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 2.0517782104434446e-05,
+      "disagreement_score": 1.0258891052217223e-05
+    },
+    {
+      "event": "sydneysiege",
+      "cluster_id": 33,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 1.9656323274830356e-05,
+      "disagreement_score": 9.828161637415178e-06
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 0,
+      "size": 190,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996016621589661,
+      "disagreement_score": 0.5610508310794831
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 1,
+      "size": 92,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9998657703399658,
+      "disagreement_score": 0.5586828851699829
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 2,
+      "size": 21,
+      "n_pairs_scored": 207,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9995049238204956,
+      "disagreement_score": 0.5673853121517937
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 3,
+      "size": 17,
+      "n_pairs_scored": 135,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9979321956634521,
+      "disagreement_score": 0.5174846163502446
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 4,
+      "size": 16,
+      "n_pairs_scored": 120,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9972604513168335,
+      "disagreement_score": 0.5277968923250834
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 5,
+      "size": 11,
+      "n_pairs_scored": 51,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9946473240852356,
+      "disagreement_score": 0.5169315051798727
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 6,
+      "size": 8,
+      "n_pairs_scored": 28,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9956004619598389,
+      "disagreement_score": 0.5156573738370623
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 7,
+      "size": 8,
+      "n_pairs_scored": 28,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9860582947731018,
+      "disagreement_score": 0.5108862902436938
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 8,
+      "size": 7,
+      "n_pairs_scored": 21,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9994215965270996,
+      "disagreement_score": 0.5235203220730736
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 9,
+      "size": 7,
+      "n_pairs_scored": 15,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9713159799575806,
+      "disagreement_score": 0.5189913233121236
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 10,
+      "size": 6,
+      "n_pairs_scored": 15,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.15152421593666077,
+      "disagreement_score": 0.07576210796833038
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 11,
+      "size": 5,
+      "n_pairs_scored": 9,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.992236316204071,
+      "disagreement_score": 0.6072292692131467
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 12,
+      "size": 5,
+      "n_pairs_scored": 10,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.791458010673523,
+      "disagreement_score": 0.3957290053367615
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 13,
+      "size": 5,
+      "n_pairs_scored": 9,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0005836136406287551,
+      "disagreement_score": 0.00029180682031437755
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 14,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0851028636097908,
+      "disagreement_score": 0.0425514318048954
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 15,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": true,
+      "flagged": false,
+      "max_contradiction": 0.0021401045378297567,
+      "disagreement_score": 0.0010700522689148784
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 16,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9820331931114197,
+      "disagreement_score": 0.5743499298890432
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 17,
+      "size": 3,
+      "n_pairs_scored": 2,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9988831877708435,
+      "disagreement_score": 0.7494415938854218
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 18,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9822587966918945,
+      "disagreement_score": 0.8244627316792805
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 19,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 1.343707390333293e-05,
+      "disagreement_score": 6.718536951666465e-06
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 20,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.9708511233329773,
+      "disagreement_score": 0.9854255616664886
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 21,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.002363748149946332,
+      "disagreement_score": 0.001181874074973166
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 22,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 9.403831063536927e-05,
+      "disagreement_score": 4.7019155317684636e-05
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 23,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 3.7808549677720293e-05,
+      "disagreement_score": 1.8904274838860147e-05
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 24,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0004838838358409703,
+      "disagreement_score": 0.00024194191792048514
+    },
+    {
+      "event": "charliehebdo",
+      "cluster_id": 25,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": true,
+      "max_contradiction": 0.997001588344574,
+      "disagreement_score": 0.998500794172287
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 0,
+      "size": 87,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9931972026824951,
+      "disagreement_score": 0.5078486013412475
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 1,
+      "size": 30,
+      "n_pairs_scored": 400,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9982189536094666,
+      "disagreement_score": 0.5153594768047333
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 2,
+      "size": 24,
+      "n_pairs_scored": 263,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9996411800384521,
+      "disagreement_score": 0.6557141261408991
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 3,
+      "size": 17,
+      "n_pairs_scored": 132,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9997743964195251,
+      "disagreement_score": 0.5301902285127928
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 4,
+      "size": 15,
+      "n_pairs_scored": 101,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9985812902450562,
+      "disagreement_score": 0.5339441104690628
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 5,
+      "size": 14,
+      "n_pairs_scored": 91,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.02321205846965313,
+      "disagreement_score": 0.011606029234826565
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 6,
+      "size": 10,
+      "n_pairs_scored": 44,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.0008352253353223205,
+      "disagreement_score": 0.00041761266766116023
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 7,
+      "size": 8,
+      "n_pairs_scored": 28,
+      "proxy_positive": true,
+      "flagged": true,
+      "max_contradiction": 0.9982473850250244,
+      "disagreement_score": 0.5169808353696551
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 8,
+      "size": 8,
+      "n_pairs_scored": 27,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.21171502768993378,
+      "disagreement_score": 0.10585751384496689
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 9,
+      "size": 4,
+      "n_pairs_scored": 6,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.003810106310993433,
+      "disagreement_score": 0.0019050531554967165
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 10,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": true,
+      "flagged": false,
+      "max_contradiction": 0.13505610823631287,
+      "disagreement_score": 0.06752805411815643
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 11,
+      "size": 3,
+      "n_pairs_scored": 3,
+      "proxy_positive": true,
+      "flagged": false,
+      "max_contradiction": 0.0002951871429104358,
+      "disagreement_score": 0.0001475935714552179
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 12,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 9.168879478238523e-05,
+      "disagreement_score": 4.5844397391192615e-05
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 13,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.01118556596338749,
+      "disagreement_score": 0.005592782981693745
+    },
+    {
+      "event": "germanwings-crash",
+      "cluster_id": 14,
+      "size": 2,
+      "n_pairs_scored": 1,
+      "proxy_positive": false,
+      "flagged": false,
+      "max_contradiction": 0.00016801820311229676,
+      "disagreement_score": 8.400910155614838e-05
+    }
+  ]
 }
