@@ -39,9 +39,9 @@ STAGES = ("nli", "rte", "validity", "clustering", "pipeline", "reports")
 
 # --------------------------------------------------------------------------- helpers
 def results_dir(cfg: dict) -> Path:
-    """Full runs write to ``reports/results`` (versioned); sample runs to ``outputs/sample``."""
-    path = (resolve_path(cfg, "output_dir") / "results") if cfg.get("sample_mode") \
-        else REPO_ROOT / "reports" / "results"
+    """Results go to ``<output_dir>/results``: ``outputs/results`` for full runs,
+    ``outputs/sample/results`` for sample runs."""
+    path = resolve_path(cfg, "output_dir") / "results"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

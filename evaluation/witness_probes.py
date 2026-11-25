@@ -1,10 +1,10 @@
 """Witness-style regression probes for the text layer around the NLI stage.
 
-    python -m evaluation.witness_probes --tag before     # writes reports/results/witness_probes_before.json
+    python -m evaluation.witness_probes --tag before     # writes outputs/results/witness_probes_before.json
 
 The PHEME tweets never pass through the sentence splitter or the speaker rewrite, so the
 labelled-pair metrics cannot show what those steps do. These probes can. They come from the
-adversarial review (``critic/adversary.md``): each case has two or more short accounts, run
+adversarial testing: each case has two or more short accounts, run
 through the REAL pipeline (``accounts_to_claims`` -> clustering -> NLI), and expectations:
 
 * ``claims_include``: a substring that must appear in some claim (nothing lost by splitting).

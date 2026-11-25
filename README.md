@@ -1,222 +1,207 @@
 # Cross-Account Inconsistency Detector
 
-**UML501 Machine Learning, group project.**
+Given several free-text accounts of one event (witness statements, reports, tweets), this tool
+finds where the accounts disagree. It:
 
-Given several free-text accounts of one event (witness statements, reports, tweets), the system
-finds where those accounts disagree. It clusters claims by sub-event without supervision, scores
-claim pairs inside each cluster with a natural language inference (NLI) model, and lists the
-clusters whose accounts contradict each other, with the conflicting statements quoted and
-attributed.
+1. splits each account into sentence-level claims;
+2. groups claims about the same sub-event, without supervision (sentence embeddings + clustering);
+3. scores claim pairs from **different** accounts inside each group with a natural language
+   inference (NLI) model;
+4. reports the groups where accounts contradict each other, quoting the conflicting statements
+   and who made them.
 
-It does **not** decide which account is correct, assign fault, write a merged narrative, or use a
-generative language model in the detection loop.
-
-- Full write-up: [`reports/REPORT.md`](reports/REPORT.md)
-- Error analysis and manual audit: [`reports/ERROR_ANALYSIS.md`](reports/ERROR_ANALYSIS.md)
-- Slide outline: [`reports/PRESENTATION_OUTLINE.md`](reports/PRESENTATION_OUTLINE.md)
-- Data schema and cleaning: [`data/SCHEMA.md`](data/SCHEMA.md)
-
-## Architecture
+It does **not** decide which account is correct, assign fault, or write a merged narrative, and
+no generative language model is used. A flagged conflict is a prompt for a person to check, not a
+finding.
 
 ```mermaid
 flowchart LR
-    A[PHEME threads or pasted accounts] --> B["data/: clean, filter, dedup into Claim records"]
-    B --> C["clustering/: sentence embeddings"]
-    C --> D["clustering/: HDBSCAN, k-means, agglomerative or graph"]
-    D --> E["pipeline/: cross-account pairs inside each cluster"]
-    E --> F["nli_scoring/: NLI in both directions, cached"]
-    F --> G["pipeline/: disagreement score per cluster"]
-    G --> H[JSON and Markdown report]
-    G --> I["app/: Streamlit demo"]
-    G --> J["evaluation/: proxy labels, baselines, ablations, figures"]
+    A[Pasted accounts or PHEME tweets] --> B["data/: clean, split, dedup into claims"]
+    B --> C["clustering/: sentence embeddings + clustering"]
+    C --> D["pipeline/: cross-account pairs inside each cluster"]
+    D --> E["nli_scoring/: NLI in both directions, cached"]
+    E --> F["pipeline/: disagreement score per cluster"]
+    F --> G[JSON + Markdown report]
+    F --> H["app/: Streamlit demo"]
 ```
 
-## Quick start
+## 1. Install
 
-Commands are for Windows PowerShell. On Linux or macOS use `python3` and `.venv/bin/python`.
+Python 3.11. Commands are for Windows PowerShell; on Linux or macOS use `python3` and
+`.venv/bin/python`.
 
 ```powershell
 py -3.11 -m venv .venv
 ```
 
+Install PyTorch first. With an NVIDIA GPU:
+
 ```powershell
 .venv\Scripts\python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 ```
 
-(For a machine without an NVIDIA GPU use `https://download.pytorch.org/whl/cpu` instead.)
+Without a GPU, use `https://download.pytorch.org/whl/cpu` as the index URL instead. Then:
 
 ```powershell
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
+Check the install (about 15 seconds, no downloads, mock models):
+
 ```powershell
 .venv\Scripts\python -m pytest -q tests
 ```
 
-```powershell
-.venv\Scripts\python run_all.py --sample
-```
+## 2. Models
 
-```powershell
-.venv\Scripts\python run_all.py
-```
+Downloaded from Hugging Face on first use (about 1.2 GB in total) and cached:
+
+| Role | Model |
+|---|---|
+| NLI scorer | `cross-encoder/nli-deberta-v3-base` |
+| Sentence embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
+| Embeddings used for comparison in the evaluation | `sentence-transformers/all-mpnet-base-v2` |
+
+To work offline, put a model snapshot in `models/<org>__<name>` (for example
+`models/cross-encoder__nli-deberta-v3-base`); it is picked up automatically.
+
+## 3. Use it on your own accounts (no dataset needed)
+
+**Demo app:**
 
 ```powershell
 .venv\Scripts\python -m streamlit run app/streamlit_app.py
 ```
 
-### Data and models
+Paste accounts into the text box, one account per paragraph with a blank line between them.
+Start a paragraph with a name and a colon (`Witness A: ...`) to name the account. Press
+**Detect disagreement**. The sidebar holds the settings: mock or fine-tuned model, clustering
+algorithm, contradiction threshold, cluster size (distance threshold), and the three text-layer
+switches described in section 6.
 
-Datasets are read from local folders and are never downloaded by the code:
+**Command line:**
+
+```powershell
+.venv\Scripts\python -m pipeline.run --input examples/witness_accounts.txt
+```
+
+`--input` takes a text file (one account per paragraph, optional `Name:` prefix) or a JSON list
+of `{"account_id": ..., "text": ...}`. The report is written to `outputs/reports/<name>_report.md`
+and `.json`. Useful options: `--threshold 0.8`, `--algorithm hdbscan`, `--finetuned` (needs a
+fine-tuned model, section 5), `--mock` (no downloads, meaningless results).
+
+## 4. Datasets (only for the evaluation and fine-tuning)
+
+Datasets are never downloaded by the code and are not part of this repository. Download them
+yourself and place them under `data/raw/` (ignored by git):
+
+| Dataset | Used for | Source |
+|---|---|---|
+| PHEME v2, "PHEME dataset for Rumour Detection and Veracity Classification" | tweets about 9 news events, with rumour and veracity labels | [figshare 6392078](https://figshare.com/articles/dataset/PHEME_dataset_for_Rumour_Detection_and_Veracity_Classification/6392078) |
+| PHEME v1, "PHEME dataset of rumours and non-rumours" (optional fallback, no veracity) | the same events, older release | [figshare 4010619](https://figshare.com/articles/dataset/PHEME_dataset_of_rumours_and_non-rumours/4010619) |
+| PHEME RTE (Lendvai et al., LREC 2016) | 5,413 tweet pairs labelled entailment / contradiction / unknown, with leave-one-event-out splits | [PHEME project page](https://pheme.eu/2016/04/12/pheme-rte-dataset) (`pheme_rte_datasets_2016.zip`) |
+| MultiNLI 1.0 | checking the NLI model; optional replay data during fine-tuning | [NYU MultiNLI page](https://cims.nyu.edu/~sbowman/multinli/) (`multinli_1.0.zip`) |
+
+Expected layout after unzipping:
 
 ```
-data/raw/pheme_v2/all-rnr-annotated-threads/<event>-all-rnr-threads/{rumours,non-rumours}/<thread>/...
-data/raw/pheme_v1/pheme-rnr-dataset/<event>/...                 (fallback, no veracity)
-data/raw/multinli_1.0/multinli_1.0/multinli_1.0_dev_{matched,mismatched}.jsonl
-pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml   (in the repo)
+data/raw/
+├── pheme_v2/all-rnr-annotated-threads/<event>-all-rnr-threads/{rumours,non-rumours}/<thread>/...
+├── pheme_v1/pheme-rnr-dataset/<event>/...                               (optional)
+├── pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml
+├── pheme_rte_datasets_2016/test_training_splits/pheme_{train,test}_leave_<event>.xml
+└── multinli_1.0/multinli_1.0/multinli_1.0_{train,dev_matched,dev_mismatched}.jsonl
 ```
 
-Models download from HuggingFace on first use (about 1.2 GB in total) and are cached. To work
-offline, put a snapshot in `models/<org>__<name>` (for example
-`models/cross-encoder__nli-deberta-v3-base`); it is used automatically. Model names, paths and
-every threshold are in [`configs/default.yaml`](configs/default.yaml). `data/raw/`, `models/` and
-`outputs/` are gitignored.
+The loader turns PHEME's raw annotations into true / false / unverified itself, using the same
+rule as `convert_veracity_annotations.py` (a copy of the helper shipped with PHEME, kept for
+reference). All paths can be changed under `paths:` in `configs/default.yaml`.
 
-| Role | Model |
-|---|---|
-| NLI scorer | `cross-encoder/nli-deberta-v3-base` |
-| Embeddings (default) | `sentence-transformers/all-MiniLM-L6-v2` |
-| Embeddings (comparison) | `sentence-transformers/all-mpnet-base-v2` |
-| NLI comparison (optional, not run) | `roberta-large-mnli`, via `--compare-nli` |
+The first read of PHEME (about 100,000 small files) takes several minutes; the cleaned claims are
+cached in `outputs/cache/` afterwards.
 
-## Commands
+## 5. Commands
 
 | Goal | Command |
 |---|---|
-| Everything, full data | `python run_all.py` |
-| Small subset, real models | `python run_all.py --sample` |
+| Full evaluation | `python run_all.py` |
+| Small subset (minutes on CPU) | `python run_all.py --sample` |
 | Force CPU | `python run_all.py --sample --cpu` |
 | No downloads at all (mock models) | `python run_all.py --mock --sample` |
-| Only some stages | `python run_all.py --stages nli rte` (also `clustering`, `pipeline`, `reports`) |
-| Regenerate the results tables | `python -m evaluation.make_tables` |
-| Story-group CIs, pair baselines, per-pair predictions (from caches) | `python -m evaluation.validity` (also the `validity` stage) |
-| Witness-style probes of the text layer | `python -m evaluation.witness_probes --tag <name>` (`--set nli.ground_speaker=false` etc.) |
-| Fine-tune NLI, leave-one-event-out (about 10 minutes per event on GPU) | `python -m training.finetune_nli` |
-| Fine-tune the all-events demo model (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
-| Use the fine-tuned model | `python -m pipeline.run --input examples/witness_accounts.txt --finetuned`, or `finetune.use_finetuned: true`, or the checkbox in the app (direction rule `finetune.aggregation_override`, default `min_contradiction`) |
+| Only some stages | `python run_all.py --stages nli rte` (stages: `nli`, `rte`, `validity`, `clustering`, `pipeline`, `reports`) |
+| Tables of every result | `python -m evaluation.make_tables` |
+| Confidence intervals, pair baselines, per-pair predictions | `python -m evaluation.validity` |
+| Witness-style probe checks | `python -m evaluation.witness_probes --tag <name>` (add `--suite extended`, `--finetuned`, or `--set nli.ground_speaker=false`) |
+| Fine-tune the NLI model, leave one event out (about 10 min per event on GPU) | `python -m training.finetune_nli` |
+| Fine-tune the all-events model used by the demo (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
 | One PHEME event | `python -m pipeline.run --event germanwings-crash --rumours-only` |
-| Your own accounts | `python -m pipeline.run --input examples/witness_accounts.txt` |
-| Demo | `python -m streamlit run app/streamlit_app.py` |
+| EDA notebook | `python -m jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda.ipynb` |
 | Tests | `python -m pytest -q tests` |
-| Rebuild the EDA notebook outputs | `python -m jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda.ipynb` |
 
-`--input` takes a text file with one account per paragraph (an optional `Name:` prefix names the
-account) or a JSON list of `{"account_id", "text"}`. Reports go to `outputs/reports/`. Full-run
-metrics go to `reports/results/` and figures to `reports/figures/`; sample runs write to
-`outputs/sample/` so they never overwrite the reported results.
+Prefix each with `.venv\Scripts\` (Windows) or `.venv/bin/` (Linux, macOS).
 
-### Runtimes (measured)
+Where things go (all under `outputs/`, ignored by git):
 
-| Run | Hardware | Time |
-|---|---|---|
-| `run_all.py --mock --sample` | any | under 1 minute |
-| `run_all.py --sample --cpu`, cold caches | laptop CPU | about 7 minutes (424 s, measured before the labelled-pair stage was added) |
-| `run_all.py`, cold caches | RTX 4050 laptop GPU | about 20 minutes, plus model downloads and a first read of PHEME that takes several minutes |
-| `run_all.py`, warm caches | RTX 4050 laptop GPU | about 5 minutes (279 s) |
-| Unit tests | any | about 15 seconds |
-
-## Evaluation data
-
-- **PHEME RTE labelled pairs (primary).** `pheme_rte_datasets_2016/` has 5,413 tweet pairs from the
-  four events labelled entailment, contradiction or unknown. The labels are assigned through the
-  rumour stories the two tweets belong to, so they are human-defined but coarser than
-  sentence-level NLI.
-- **Veracity proxies (secondary).** The PHEME thread release itself has no pair labels and no
-  stance labels, only the rumour story, its veracity and a turnaround flag. A cluster that mixes a
-  true and a false story counts as disagreement-positive. This is a weak signal and is used for
-  the cluster-level view only.
-
-## Results summary
-
-Four events (Ottawa shooting, Sydney siege, Charlie Hebdo, Germanwings crash). Numbers are from
-`reports/results/*.json`; every table is in [`reports/RESULTS_TABLES.md`](reports/RESULTS_TABLES.md).
-
-| Check | Result |
+| Output | Folder |
 |---|---|
-| NLI scorer, MultiNLI validation matched / mismatched | accuracy 0.9001 / 0.9004 |
-| Independent units in those pairs (labels follow the rumour stories) | 85 story groups, 21 of them contradictions (1 in Germanwings) |
-| NLI scorer on 5,413 labelled PHEME pairs, contradiction flags (base rate 25.5%) | precision 0.619, recall 0.329, F1 0.430 [0.196, 0.630] |
-| Trivial baselines on the same pairs | flag everything: F1 0.406; negation/number/antonym cues: F1 0.476 |
-| Same pairs through the pipeline (agglomerative clusters, then NLI) | precision 0.672, recall 0.132 |
-| Labelled "unknown" pairs wrongly flagged, NLI alone vs pipeline | 9.4% vs 1.2% |
-| Labelled contradictions that land in the same cluster: agglomerative / HDBSCAN | 55.1% / 9.9% |
-| Pairs sent to NLI, in-cluster vs all pairs (same 1,283 claims) | 38,526 vs 207,385 (82% fewer) |
-| Cluster-level detection vs veracity proxy (102 clusters, 28 positive) | precision 0.434, recall 0.821, F1 0.568 |
-| Baselines on the same clusters | flag everything: F1 0.431; random: F1 0.357; flag the largest clusters: F1 0.519 |
-| Manual audit of 40 random flagged pairs (earlier HDBSCAN configuration) | 27.5% genuine, 15% time-driven, 57.5% false alarms |
+| Per-input and per-event reports | `outputs/reports/` |
+| Evaluation results (JSON, per-pair predictions) | `outputs/results/` |
+| Results tables | `outputs/RESULTS_TABLES.md` |
+| Figures | `outputs/figures/` |
+| Embedding and NLI score caches | `outputs/cache/` |
+| Sample runs (never overwrite full runs) | `outputs/sample/` |
+| Fine-tuned models | `models/finetuned/` |
 
-What this means:
+Approximate runtimes on an RTX 4050 laptop GPU: full `run_all.py` about 20 minutes with cold
+caches (plus model downloads and the first PHEME read), about 5 minutes with warm caches.
+`run_all.py --mock --sample` takes under a minute on any machine.
 
-Intervals in brackets are 95% story-group bootstrap intervals (`python -m evaluation.validity`):
-pairs inside one rumour-story group share a label, so resampling single pairs would give intervals
-about 9 times too narrow.
+## 6. Configuration
 
-- When the system flags a pair, it is a labelled contradiction about two times in three. It finds
-  only a minority of the contradictions that exist. At the default threshold its F1 cannot be told
-  apart from flagging every pair (+0.02 [-0.22, +0.25]) or from three keyword cues.
-- Clustering is a cost saver (82% fewer pairs). Its precision gain is not significant
-  (+0.05 [-0.11, +0.29]) and it loses recall (-0.20 [-0.40, -0.05]).
-- The clustering that best reproduces the annotated rumour stories (HDBSCAN) is the worst for this
-  task, because contradicting tweets belong to different stories. The default is agglomerative.
-- Fine-tuning the NLI model on the labelled pairs, tested on held-out events and compared with the
-  zero-shot model given the same validation-tuned threshold: pooled contradiction F1 0.492 to 0.615,
-  difference +0.12 [-0.08, +0.35]. It improves F1 on 3 of 4 events, is level on Ottawa, and the
-  Germanwings gain rests on one contradiction story. A "story oracle" that only reads the label
-  structure (two different stories, similar wording) scores F1 0.631, so the gain may be partly
-  story learning. Details in sections 6.10 and 6.11 of the report.
-- At cluster level, ranking clusters by size alone (AP 0.68) beats ranking by contradiction score
-  (0.64), and the detector's F1 margin over "flag the largest clusters" is +0.05 [-0.02, +0.13].
-  The cluster-level proxy result is largely a cluster-size effect.
-- Pasted witness accounts pass through a text layer before NLI: an abbreviation-aware sentence
-  splitter, clause splitting for sentences over 40 words (a pair must fit the 128-token window), and
-  speaker grounding ("I was inside" becomes "Witness A was inside"). On 23 witness-style probe checks
-  (`python -m evaluation.witness_probes`) this raises the pass count from 13 to 21 (zero-shot) and
-  from 14 to 22 (fine-tuned). The probes show failure modes, not error rates.
+Every model name, path and threshold is in `configs/default.yaml` (`configs/sample.yaml`
+overrides it for `--sample`). The settings you are most likely to change:
 
-![Flag rates](reports/figures/rte_flag_rates.png)
-![Heatmap](reports/figures/eval_heatmap_germanwings-crash.png)
+| Setting | Default | Meaning |
+|---|---|---|
+| `disagreement.contradiction_threshold` | `0.9` | A pair counts as contradicting at or above this probability |
+| `nli.aggregation` | `min_contradiction` | How the two NLI directions are combined; `min` means both must say contradiction |
+| `clustering.algorithm` | `agglomerative` | `agglomerative`, `hdbscan`, `kmeans` or `graph` |
+| `disagreement.max_pairs_per_cluster` | `400` | Larger clusters are randomly sampled to bound cost |
+| `data.sentence_splitter` | `abbrev` | Do not split sentences after "Dr.", "St.", "approx." and similar (`simple` splits after every full stop) |
+| `data.max_claim_words` | `40` | Longer sentences are split into clauses so a pair fits the NLI model's 128-token window |
+| `nli.ground_speaker` | `true` | Before NLI, "I", "my", "we" become the account's name, so two witnesses' "I" are not read as one person; a leading "I heard / I saw" is dropped |
+| `finetune.use_finetuned` | `false` | Use the fine-tuned NLI model instead of the base model |
 
-Every report also opens with a **findings summary** built only from the statements: what the
-accounts agree on, where they conflict, what only one account says, and what the summary cannot
-tell you.
+The last three apply to pasted accounts only, not to PHEME tweets.
 
-## Repository layout
+## 7. Repository layout
 
 ```
 .
-├── docs/          project brief and work division
-├── data/          loaders (PHEME, PHEME RTE, MultiNLI), cleaning, Claim schema, proxy labels, SCHEMA.md (+ raw/, gitignored)
-├── nli_scoring/   NLI scorer (real and mock), cache
-├── clustering/    embeddings, clustering algorithms, cluster labels, metrics
-├── pipeline/      config, disagreement score, findings summary, end-to-end run, report rendering
-├── evaluation/    experiments, baselines, ablations, plots
-├── training/      NLI fine-tuning on PHEME RTE (leave one event out)
-├── notebooks/     01_eda.ipynb
 ├── app/           Streamlit demo
-├── examples/      sample witness accounts
-├── reports/       REPORT.md, ERROR_ANALYSIS.md, PRESENTATION_OUTLINE.md, results/, figures/
-├── tests/         unit tests (mock models, no network)
+├── clustering/    embeddings, clustering algorithms, cluster labels, clustering metrics
+├── common/        shared interfaces
 ├── configs/       default.yaml, sample.yaml
-├── models/        optional local model snapshots (gitignored)
+├── data/          loaders (PHEME, PHEME RTE, MultiNLI), cleaning and splitting, Claim schema, proxy labels
+├── evaluation/    experiments, baselines, confidence intervals, probe checks, tables, figures
+├── examples/      sample witness accounts
+├── nli_scoring/   NLI scorer (real and mock) with an on-disk cache
+├── notebooks/     exploratory data analysis
+├── pipeline/      config, speaker grounding, disagreement score, findings summary, end-to-end run, report
+├── tests/         unit tests (mock models, no network)
+├── training/      NLI fine-tuning on PHEME RTE (leave one event out)
+├── convert_veracity_annotations.py   PHEME's own annotation helper (reference copy)
 ├── requirements.txt
 └── run_all.py
 ```
 
-## Known limitations
+## 8. Known limitations
 
-Recall is low (the pipeline finds about 13% of labelled contradictions). The labelled pairs hold
-only 21 independent contradiction stories, so every interval is wide. The labels are
-story-level, and the default clustering was chosen on them without a held-out split. The system is
-English-only, uses source tweets only, has no notion of time (an update looks like a dispute), and
-samples at most 400 pairs per cluster. A flagged pair is a prompt for a person to look, not a
-finding. Details are in section 8 of the report.
+- English only. Claims are compared only inside a cluster, so a conflict between two claims put in
+  different clusters is never seen, and one account is never checked against itself.
+- Time is not modelled: an update ("alive when I got there" / "dead when the ambulance arrived")
+  looks like a dispute.
+- The NLI model still flags some compatible statements: different units for the same quantity,
+  "I didn't see X" against "X happened", reported speech, and statements about different people.
+- Scores are close to 0 or 1 for real and false conflicts alike, so the threshold changes less
+  than you might expect.

@@ -2,7 +2,7 @@
 
 Verified layout of the local copy::
 
-    pheme_rte_datasets_2016/pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml
+    data/raw/pheme_rte_datasets_2016/per_event_splits/pheme_rte_<event>_en.xml
         <pair entailment="ENTAILMENT|CONTRADICTION|UNKNOWN" id="<tweetA>.json_<tweetB>.json"
               rte_type="..." rumours="Story 1: ...; Story 2: ..."> <t>text</t> <h>text</h> </pair>
 
