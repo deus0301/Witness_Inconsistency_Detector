@@ -4272,5 +4272,214 @@
     },
     "n_train_pairs": 5413,
     "run_id": "20261126-013145"
+  },
+  "direction_rules_on_validation": {
+    "threshold": 0.5,
+    "evaluated_on": "validation events only",
+    "per_fold": {
+      "germanwings-crash": {
+        "validation_event": "sydneysiege",
+        "n_pairs": 1214,
+        "rules": {
+          "max_contradiction": {
+            "precision": 0.5480427046263345,
+            "recall": 0.48580441640378547,
+            "f1": 0.5150501672240803,
+            "n_flagged": 281,
+            "average_precision": 0.5509805924977548,
+            "flag_rate_by_label": {
+              "entailment": 0.09939759036144578,
+              "neutral": 0.1663716814159292,
+              "contradiction": 0.48580441640378547
+            }
+          },
+          "mean": {
+            "precision": 0.6026200873362445,
+            "recall": 0.4353312302839117,
+            "f1": 0.5054945054945055,
+            "n_flagged": 229,
+            "average_precision": 0.5364887482840347,
+            "flag_rate_by_label": {
+              "entailment": 0.0572289156626506,
+              "neutral": 0.12743362831858407,
+              "contradiction": 0.4353312302839117
+            }
+          },
+          "min_contradiction": {
+            "precision": 0.6123595505617978,
+            "recall": 0.3438485804416404,
+            "f1": 0.4404040404040404,
+            "n_flagged": 178,
+            "average_precision": 0.5114519982093567,
+            "flag_rate_by_label": {
+              "entailment": 0.030120481927710843,
+              "neutral": 0.10442477876106195,
+              "contradiction": 0.3438485804416404
+            }
+          }
+        }
+      },
+      "sydneysiege": {
+        "validation_event": "ottawashooting",
+        "n_pairs": 1100,
+        "rules": {
+          "max_contradiction": {
+            "precision": 0.8686868686868687,
+            "recall": 0.6843501326259946,
+            "f1": 0.7655786350148368,
+            "n_flagged": 297,
+            "average_precision": 0.8968643097330795,
+            "flag_rate_by_label": {
+              "entailment": 0.06486486486486487,
+              "neutral": 0.017857142857142856,
+              "contradiction": 0.6843501326259946
+            }
+          },
+          "mean": {
+            "precision": 0.8969465648854962,
+            "recall": 0.623342175066313,
+            "f1": 0.7355242566510172,
+            "n_flagged": 262,
+            "average_precision": 0.8905264115580455,
+            "flag_rate_by_label": {
+              "entailment": 0.04504504504504504,
+              "neutral": 0.011904761904761904,
+              "contradiction": 0.623342175066313
+            }
+          },
+          "min_contradiction": {
+            "precision": 0.9245283018867925,
+            "recall": 0.519893899204244,
+            "f1": 0.66553480475382,
+            "n_flagged": 212,
+            "average_precision": 0.8863868634672137,
+            "flag_rate_by_label": {
+              "entailment": 0.025225225225225224,
+              "neutral": 0.011904761904761904,
+              "contradiction": 0.519893899204244
+            }
+          }
+        }
+      },
+      "charliehebdo": {
+        "validation_event": "germanwings-crash",
+        "n_pairs": 1163,
+        "rules": {
+          "max_contradiction": {
+            "precision": 0.5356037151702786,
+            "recall": 0.6731517509727627,
+            "f1": 0.596551724137931,
+            "n_flagged": 323,
+            "average_precision": 0.5517360555326829,
+            "flag_rate_by_label": {
+              "entailment": 0.23093681917211328,
+              "neutral": 0.09843400447427293,
+              "contradiction": 0.6731517509727627
+            }
+          },
+          "mean": {
+            "precision": 0.5714285714285714,
+            "recall": 0.5136186770428015,
+            "f1": 0.540983606557377,
+            "n_flagged": 231,
+            "average_precision": 0.5437311149903788,
+            "flag_rate_by_label": {
+              "entailment": 0.1437908496732026,
+              "neutral": 0.0738255033557047,
+              "contradiction": 0.5136186770428015
+            }
+          },
+          "min_contradiction": {
+            "precision": 0.6397058823529411,
+            "recall": 0.33852140077821014,
+            "f1": 0.44274809160305345,
+            "n_flagged": 136,
+            "average_precision": 0.5014532629647149,
+            "flag_rate_by_label": {
+              "entailment": 0.08278867102396514,
+              "neutral": 0.024608501118568233,
+              "contradiction": 0.33852140077821014
+            }
+          }
+        }
+      },
+      "ottawashooting": {
+        "validation_event": "charliehebdo",
+        "n_pairs": 1936,
+        "rules": {
+          "max_contradiction": {
+            "precision": 0.8435374149659864,
+            "recall": 0.5807962529274004,
+            "f1": 0.6879334257975035,
+            "n_flagged": 294,
+            "average_precision": 0.7757041879779558,
+            "flag_rate_by_label": {
+              "entailment": 0.015552099533437015,
+              "neutral": 0.04157043879907621,
+              "contradiction": 0.5807962529274004
+            }
+          },
+          "mean": {
+            "precision": 0.8782287822878229,
+            "recall": 0.5573770491803278,
+            "f1": 0.681948424068768,
+            "n_flagged": 271,
+            "average_precision": 0.7828658419814045,
+            "flag_rate_by_label": {
+              "entailment": 0.012441679626749611,
+              "neutral": 0.028868360277136258,
+              "contradiction": 0.5573770491803278
+            }
+          },
+          "min_contradiction": {
+            "precision": 0.9051724137931034,
+            "recall": 0.4918032786885246,
+            "f1": 0.6373292867981791,
+            "n_flagged": 232,
+            "average_precision": 0.7698767270063428,
+            "flag_rate_by_label": {
+              "entailment": 0.00933125972006221,
+              "neutral": 0.018475750577367205,
+              "contradiction": 0.4918032786885246
+            }
+          }
+        }
+      }
+    },
+    "mean": {
+      "max_contradiction": {
+        "precision": 0.6989676758623671,
+        "recall": 0.6060256382324858,
+        "f1": 0.6412784880435879,
+        "average_precision": 0.6938212864353683,
+        "flag_rate_by_label": {
+          "entailment": 0.10268784348296524,
+          "neutral": 0.08105831688660531,
+          "contradiction": 0.6060256382324858
+        }
+      },
+      "mean": {
+        "precision": 0.7373060014845338,
+        "recall": 0.5324172828933385,
+        "f1": 0.6159876981929169,
+        "average_precision": 0.688403029203466,
+        "flag_rate_by_label": {
+          "entailment": 0.06462662250191197,
+          "neutral": 0.06050806346404674,
+          "contradiction": 0.5324172828933385
+        }
+      },
+      "min_contradiction": {
+        "precision": 0.7704415371486586,
+        "recall": 0.42351678977815477,
+        "f1": 0.5465040558897732,
+        "average_precision": 0.667292212911907,
+        "flag_rate_by_label": {
+          "entailment": 0.03686640947424086,
+          "neutral": 0.03985344809043982,
+          "contradiction": 0.42351678977815477
+        }
+      }
+    }
   }
 }

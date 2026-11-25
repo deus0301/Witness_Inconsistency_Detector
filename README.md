@@ -101,7 +101,7 @@ every threshold are in [`configs/default.yaml`](configs/default.yaml). `data/raw
 | Regenerate the results tables | `python -m evaluation.make_tables` |
 | Fine-tune NLI, leave-one-event-out (about 10 minutes per event on GPU) | `python -m training.finetune_nli` |
 | Fine-tune the all-events demo model (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
-| Use the fine-tuned model | `python -m pipeline.run --input examples/witness_accounts.txt --finetuned`, or `finetune.use_finetuned: true`, or the checkbox in the app |
+| Use the fine-tuned model | `python -m pipeline.run --input examples/witness_accounts.txt --finetuned`, or `finetune.use_finetuned: true`, or the checkbox in the app (direction rule `finetune.aggregation_override`, default `min_contradiction`) |
 | One PHEME event | `python -m pipeline.run --event germanwings-crash --rumours-only` |
 | Your own accounts | `python -m pipeline.run --input examples/witness_accounts.txt` |
 | Demo | `python -m streamlit run app/streamlit_app.py` |

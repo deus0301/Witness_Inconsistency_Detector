@@ -78,6 +78,7 @@ def read_operating_point(model_dir: str | Path) -> dict | None:
 def apply_finetuned(cfg: dict) -> dict:
     """Point ``models.nli`` at the configured fine-tuned checkpoint and use its saved
     direction rule and threshold (mode ``finetune.operating_mode``).
+    ``finetune.aggregation_override`` replaces the saved direction rule when set.
 
     If the checkpoint is missing, warn and keep the zero-shot model and settings.
     """
@@ -93,7 +94,7 @@ def apply_finetuned(cfg: dict) -> dict:
         return cfg
     chosen = point["modes"][ft["operating_mode"]]
     cfg["models"]["nli"] = name
-    cfg["nli"]["aggregation"] = chosen["aggregation"]
+    cfg["nli"]["aggregation"] = ft.get("aggregation_override") or chosen["aggregation"]
     cfg["disagreement"]["contradiction_threshold"] = float(chosen["threshold"])
     cfg["finetune"]["active"] = True
     return cfg

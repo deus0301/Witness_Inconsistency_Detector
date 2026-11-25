@@ -75,6 +75,8 @@ finetune:                          # NLI fine-tuning on PHEME RTE (training/fine
   use_finetuned: false             # true = replace models.nli by the checkpoint below
   checkpoint: nli-deberta-v3-base-pheme-all   # folder under paths.finetuned_dir
   operating_mode: best_f1          # best_f1 | recall_at_precision: which saved operating point to use
+  aggregation_override: min_contradiction   # null = use the saved rule. min: both directions must
+                                   # say contradiction (fewer false alarms, lower recall; see REPORT 6.10)
   # --- training
   folds: [germanwings-crash, sydneysiege, ottawashooting, charliehebdo]   # held-out events
   lr: 2.0e-5

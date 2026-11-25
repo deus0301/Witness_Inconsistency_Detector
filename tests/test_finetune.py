@@ -173,10 +173,15 @@ def test_apply_finetuned_switch(cfg, tmp_path):
         "best_f1": {"aggregation": "mean", "threshold": 0.6},
         "recall_at_precision": {"aggregation": "max_contradiction", "threshold": 0.4}}}), encoding="utf-8")
     cfg["finetune"]["operating_mode"] = "recall_at_precision"
+    cfg["finetune"]["aggregation_override"] = None
     apply_finetuned(cfg)
     assert cfg["finetune"]["active"] is True
     assert cfg["models"]["nli"] == f"finetuned/{cfg['finetune']['checkpoint']}"
     assert cfg["nli"]["aggregation"] == "max_contradiction"
+    assert cfg["disagreement"]["contradiction_threshold"] == 0.4
+    cfg["finetune"]["aggregation_override"] = "min_contradiction"  # the demo default
+    apply_finetuned(cfg)
+    assert cfg["nli"]["aggregation"] == "min_contradiction"
     assert cfg["disagreement"]["contradiction_threshold"] == 0.4
 
 

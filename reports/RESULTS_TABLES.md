@@ -230,6 +230,31 @@ Clustering quality on each held-out event (agglomerative, rumour source tweets, 
 | fine-tuned, val-tuned best F1 | 0.623 | 0.357 | 0.425 |
 | fine-tuned, val-tuned recall at P>=min | 0.622 | 0.348 | 0.419 |
 
+### Direction rule for the demo (validation events only, threshold 0.50)
+
+Each fold's fine-tuned model on its validation event; the test events are not used.
+
+| Rule (mean of 4 validation events) | Contr. P | Contr. R | Contr. F1 | Avg. precision | Flag rate: entailment / unknown / contradiction |
+|---|---|---|---|---|---|
+| max_contradiction | 0.699 | 0.606 | 0.641 | 0.694 | 10.3% / 8.1% / 60.6% |
+| mean | 0.737 | 0.532 | 0.616 | 0.688 | 6.5% / 6.1% / 53.2% |
+| min_contradiction | 0.770 | 0.424 | 0.547 | 0.667 | 3.7% / 4.0% / 42.4% |
+
+| Fold model | Rule | Contr. P | Contr. R | Contr. F1 | Entailment flag rate |
+|---|---|---|---|---|---|
+| germanwings-crash (validation: sydneysiege) | max_contradiction | 0.548 | 0.486 | 0.515 | 9.9% |
+| germanwings-crash (validation: sydneysiege) | mean | 0.603 | 0.435 | 0.505 | 5.7% |
+| germanwings-crash (validation: sydneysiege) | min_contradiction | 0.612 | 0.344 | 0.440 | 3.0% |
+| sydneysiege (validation: ottawashooting) | max_contradiction | 0.869 | 0.684 | 0.766 | 6.5% |
+| sydneysiege (validation: ottawashooting) | mean | 0.897 | 0.623 | 0.736 | 4.5% |
+| sydneysiege (validation: ottawashooting) | min_contradiction | 0.925 | 0.520 | 0.666 | 2.5% |
+| charliehebdo (validation: germanwings-crash) | max_contradiction | 0.536 | 0.673 | 0.597 | 23.1% |
+| charliehebdo (validation: germanwings-crash) | mean | 0.571 | 0.514 | 0.541 | 14.4% |
+| charliehebdo (validation: germanwings-crash) | min_contradiction | 0.640 | 0.339 | 0.443 | 8.3% |
+| ottawashooting (validation: charliehebdo) | max_contradiction | 0.844 | 0.581 | 0.688 | 1.6% |
+| ottawashooting (validation: charliehebdo) | mean | 0.878 | 0.557 | 0.682 | 1.2% |
+| ottawashooting (validation: charliehebdo) | min_contradiction | 0.905 | 0.492 | 0.637 | 0.9% |
+
 ### All-events demo model
 
 `finetuned/nli-deberta-v3-base-pheme-all`: 5,413 pairs, 1 epochs (median fold best epoch). Operating points (median of fold choices): best F1 `max_contradiction` at 0.50; recall at precision `max_contradiction` at 0.05. It has no held-out test set.

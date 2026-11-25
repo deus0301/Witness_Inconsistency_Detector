@@ -557,6 +557,28 @@ What this shows:
   test set of its own, and any number measured with it on PHEME RTE pairs would be on training
   data.
 
+**Direction rule for the demo.** The folds mostly chose `max_contradiction` (one direction is
+enough). On the example witness accounts this flags "The driver stayed at the scene" against
+"The driver got out and called an ambulance", which agree. The zero-shot model makes the same
+error with full confidence in both directions; the fine-tuned model calls it neutral in one
+direction and contradiction in the other. The rules were then compared on the four validation
+events only, at the demo threshold of 0.5 (`direction_rules_on_validation` in the results):
+
+| Rule (mean of 4 validation events) | Contr. P | Contr. R | Contr. F1 | Flag rate: entailment / unknown |
+|---|---|---|---|---|
+| max_contradiction | 0.699 | 0.606 | 0.641 | 10.3% / 8.1% |
+| mean | 0.737 | 0.532 | 0.616 | 6.5% / 6.1% |
+| min_contradiction (demo) | 0.770 | 0.424 | 0.547 | 3.7% / 4.0% |
+
+The demo uses `min_contradiction` (`finetune.aggregation_override`), for the same reason as the
+zero-shot default (section 4): a person reads every flag, so a shorter, cleaner list is worth more
+than recall. This removes the driver false alarm but also loses a real one on the same example
+("ran the red light" against "the light was green"), which the fine-tuned model scores as a
+contradiction in one direction only. The leave-one-event-out results above keep the rules chosen
+by the fold procedure; the override was chosen after looking at one example and the validation
+events, not the test events.
+
+
 ## 7. Runtime
 
 Measured on an RTX 4050 laptop GPU (6 GB), Windows 11, Python 3.11.
@@ -596,7 +618,12 @@ not been re-timed since.
 9. **The findings summary is not evaluated.** "Agree" relies on the same NLI model's entailment
    score, which section 6.2 shows is conservative, so real agreement is under-reported.
 10. **The manual audit is small, single-annotator, and from the earlier configuration.**
-11. **The fine-tuned model may have learned story cues.** It was trained on story-level labels,
+11. **Different descriptions of the same fact are read as contradictions.** Both models flag
+    "stayed at the scene" against "got out and called an ambulance". The models match surface
+    patterns (same person, different actions) and have no world knowledge linking the two.
+    The PHEME pairs do not teach this, and the stricter demo rule only hides it when one
+    direction disagrees.
+12. **The fine-tuned model may have learned story cues.** It was trained on story-level labels,
     flags many entailment pairs on some events (39% on Germanwings), is slightly worse than the
     zero-shot model on Ottawa, and was trained once per fold with one seed. Its threshold is
     unstable across folds. The demo model has no held-out evaluation of its own.

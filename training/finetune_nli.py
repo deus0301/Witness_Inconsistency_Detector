@@ -626,6 +626,49 @@ def train_all_events(cfg: dict, folds: dict[str, dict[str, Any]]) -> dict[str, A
             "operating_point": point, "n_train_pairs": len(pairs), "run_id": meta["run_id"]}
 
 
+# --------------------------------------------------------------------------- direction rules
+def compare_rules_on_validation(cfg: dict, folds: Sequence[str], threshold: float) -> dict[str, Any]:
+    """Each fold's fine-tuned model on its VALIDATION event under every direction rule at one
+    fixed threshold (the test events are not touched). Used to pick the demo's rule."""
+    from sklearn.metrics import average_precision_score
+
+    splits = resolve_path(cfg, "pheme_rte_splits")
+    rules = cfg["finetune"]["operating_point"]["aggregations"]
+    per_fold: dict[str, Any] = {}
+    for held in folds:
+        train_all, _ = remove_leakage(load_rte_split(splits, held, "train"),
+                                      load_rte_split(splits, held, "test"))
+        _, val, val_event = validation_split(cfg, held, train_all)
+        fcfg = zero_shot_cfg(cfg)
+        fcfg["models"]["nli"] = finetuned_model_name(cfg, checkpoint_name(cfg, held))
+        scorer = build_scorer(fcfg)
+        fwd, back = score_both(scorer, val)
+        del scorer
+        free_gpu()
+        truth = np.array([p.label for p in val])
+        is_contra = truth == "contradiction"
+        per_fold[held] = {"validation_event": val_event, "n_pairs": len(val), "rules": {}}
+        for agg in rules:
+            score = aggregate_directions(fwd, back, agg)[:, C]
+            per_fold[held]["rules"][agg] = {
+                **_prf_at(is_contra, score, threshold),
+                "average_precision": float(average_precision_score(is_contra, score)),
+                "flag_rate_by_label": {lab: float((score[truth == lab] >= threshold).mean())
+                                       for lab in NLI_LABELS},
+            }
+            r = per_fold[held]["rules"][agg]
+            log(f"rules: model without {held}, validation {val_event}, {agg:>17} at {threshold}: "
+                f"P={r['precision']:.3f} R={r['recall']:.3f} F1={r['f1']:.3f}")
+    mean = {agg: {k: float(np.mean([f["rules"][agg][k] for f in per_fold.values()]))
+                  for k in ("precision", "recall", "f1", "average_precision")} for agg in rules}
+    for agg in rules:
+        mean[agg]["flag_rate_by_label"] = {
+            lab: float(np.mean([f["rules"][agg]["flag_rate_by_label"][lab] for f in per_fold.values()]))
+            for lab in NLI_LABELS}
+    return {"threshold": threshold, "evaluated_on": "validation events only",
+            "per_fold": per_fold, "mean": mean}
+
+
 # --------------------------------------------------------------------------- CLI
 def main(argv: Sequence[str] | None = None) -> None:
     fix_console_encoding()
@@ -636,6 +679,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--skip-folds", action="store_true", help="do not train any fold")
     parser.add_argument("--all-events", action="store_true",
                         help="also train the all-events demo model from the fold results")
+    parser.add_argument("--compare-rules", action="store_true",
+                        help="score each fold model on its validation event under every direction "
+                             "rule at the demo threshold (test events untouched)")
     parser.add_argument("--no-pipeline-eval", action="store_true",
                         help="skip the clustering view (needs the raw PHEME threads)")
     args = parser.parse_args(argv)
@@ -653,6 +699,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         log(f"wrote {save_results(cfg, results)}")
     if args.all_events:
         results["all_events_model"] = train_all_events(cfg, results["folds"])
+        log(f"wrote {save_results(cfg, results)}")
+    if args.compare_rules:
+        allm = results.get("all_events_model")
+        thr = allm["operating_point"]["modes"][cfg["finetune"]["operating_mode"]]["threshold"]             if allm else 0.5
+        results["direction_rules_on_validation"] = compare_rules_on_validation(
+            cfg, list(results["folds"]), thr)
         log(f"wrote {save_results(cfg, results)}")
 
 

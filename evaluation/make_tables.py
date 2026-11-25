@@ -121,6 +121,24 @@ def finetune_tables(ft: dict[str, Any]) -> list[str]:
             lines += _table(["Mean over folds", "Pipeline P", "Pipeline R", "Pipeline F1"],
                             [[label, mean["pipeline"][k]["precision"], mean["pipeline"][k]["recall"],
                               mean["pipeline"][k]["f1"]] for k, label in FT_SETTINGS])
+    rules = ft.get("direction_rules_on_validation")
+    if rules:
+        lines += [f"### Direction rule for the demo (validation events only, threshold {rules['threshold']:.2f})", "",
+                  "Each fold's fine-tuned model on its validation event; the test events are not used.", ""]
+        rows = []
+        for agg, m in rules["mean"].items():
+            fr = m["flag_rate_by_label"]
+            rows.append([agg, m["precision"], m["recall"], m["f1"], m["average_precision"],
+                         f"{_pct(fr['entailment'])} / {_pct(fr['neutral'])} / {_pct(fr['contradiction'])}"])
+        lines += _table(["Rule (mean of 4 validation events)", "Contr. P", "Contr. R", "Contr. F1",
+                         "Avg. precision", "Flag rate: entailment / unknown / contradiction"], rows)
+        rows = []
+        for held, f in rules["per_fold"].items():
+            for agg, r in f["rules"].items():
+                rows.append([f"{held} (validation: {f['validation_event']})", agg, r["precision"], r["recall"],
+                             r["f1"], _pct(r["flag_rate_by_label"]["entailment"])])
+        lines += _table(["Fold model", "Rule", "Contr. P", "Contr. R", "Contr. F1", "Entailment flag rate"], rows)
+
     allm = ft.get("all_events_model")
     if allm:
         modes = allm["operating_point"]["modes"]
