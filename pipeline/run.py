@@ -31,6 +31,7 @@ from pipeline.config import (apply_finetuned, fix_console_encoding, load_config,
 from pipeline.disagreement import cluster_pairs, disagreement_stats
 from pipeline.findings import build_findings
 from pipeline.grounding import ground_speaker
+from pipeline.pair_checks import apply_checks, describe, enabled_checks
 from pipeline.report import render_markdown
 
 
@@ -42,8 +43,11 @@ class PipelineResult:
     embeddings: np.ndarray
     labels: np.ndarray
     pairs: list[tuple[int, int]]            # scored index pairs (into ``claims``)
-    probs: np.ndarray                       # [n_pairs, 3] (entailment, neutral, contradiction)
+    probs: np.ndarray                       # [n_pairs, 3] (entailment, neutral, contradiction),
+                                            # after the post-NLI checks (set-aside pairs -> neutral)
     report: dict[str, Any] = field(default_factory=dict)
+    raw_probs: np.ndarray | None = None     # the NLI model's own probabilities, before the checks
+    set_aside: dict[int, str] = field(default_factory=dict)  # pair index -> check name
 
 
 def accounts_to_claims(accounts: Sequence[dict[str, str]], event: str = "custom",
@@ -180,7 +184,13 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
               f"({int((labels < 0).sum())} unclustered), {len(pairs)} pairs to score "
               f"(all-pairs would be {n * (n - 1) // 2})", flush=True)
     nli_texts = [nli_text(c) for c in claims]
-    probs = scorer.score_pairs([(nli_texts[i], nli_texts[j]) for i, j in pairs])
+    raw_probs = scorer.score_pairs([(nli_texts[i], nli_texts[j]) for i, j in pairs])
+    # post-NLI checks: set aside flagged pairs that match a known non-contradiction pattern
+    checks = enabled_checks(cfg)
+    probs, set_aside = apply_checks(
+        [claims[i].text for i, _ in pairs], [claims[j].text for _, j in pairs],
+        [claims[i].account_id for i, _ in pairs], [claims[j].account_id for _, j in pairs],
+        raw_probs, dis["contradiction_threshold"], checks)
 
     terms = top_terms_per_cluster(texts, labels, cfg["clustering"]["label_top_terms"])
     central = central_claim_per_cluster(emb, labels) if claims else {}
@@ -189,6 +199,11 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
     for cid in cluster_ids:
         cpairs = per_cluster[cid]
         cprobs = probs[offset:offset + len(cpairs)]
+        set_aside_here = [
+            {"claim_a": _claim_view(claims[cpairs[k - offset][0]]),
+             "claim_b": _claim_view(claims[cpairs[k - offset][1]]),
+             "p_contradiction": float(raw_probs[k, 2]), **describe(set_aside[k])}
+            for k in range(offset, offset + len(cpairs)) if k in set_aside]
         offset += len(cpairs)
         members = np.where(labels == cid)[0].tolist()
         stats = disagreement_stats(cprobs, dis["contradiction_threshold"],
@@ -211,6 +226,7 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
             "claim_ids": [claims[i].claim_id for i in members],
             **stats,
             "contradicting_pairs": contradicting,
+            "set_aside_pairs": set_aside_here,
         })
     clusters_out.sort(key=lambda c: (-int(c["flagged"]), -c["disagreement_score"], -c["size"]))
 
@@ -228,6 +244,7 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
             "nli_aggregation": cfg["nli"]["aggregation"],
             "nli_max_length": cfg["nli"].get("max_length"),
             "speaker_grounding": any("nli_text" in c.metadata for c in claims),
+            "post_nli_checks": checks,
             "seed": cfg["seed"],
         },
         "summary": {
@@ -238,11 +255,14 @@ def run_pipeline(claims: Sequence[Claim], cfg: dict, embedder=None,
             "n_pairs_scored": len(pairs),
             "n_pairs_all_pairs": len(claims) * (len(claims) - 1) // 2,
             "n_flagged_clusters": sum(c["flagged"] for c in clusters_out),
+            "n_pairs_set_aside": len(set_aside),
+            "set_aside_by_check": {name: sum(v == name for v in set_aside.values())
+                                   for name in sorted(set(set_aside.values()))},
         },
         "findings": build_findings(claims, labels, clusters_out, pairs, probs, scorer, cfg),
         "clusters": clusters_out,
     }
-    return PipelineResult(claims, emb, labels, pairs, probs, report)
+    return PipelineResult(claims, emb, labels, pairs, probs, report, raw_probs, set_aside)
 
 
 def save_report(result: PipelineResult, out_dir: str | Path, name: str) -> tuple[Path, Path]:

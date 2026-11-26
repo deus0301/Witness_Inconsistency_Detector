@@ -66,6 +66,10 @@ with st.sidebar:
     threshold = st.slider("Contradiction threshold", 0.5, 0.99,
                           float(cfg["disagreement"]["contradiction_threshold"]), 0.01)
     st.markdown(f"Embeddings: `{cfg['models']['embedding']}`  \nNLI: `{cfg['models']['nli']}`")
+    cfg.setdefault("checks", {})["enabled"] = st.checkbox(
+        "Post-NLI checks", value=bool(cfg.get("checks", {}).get("enabled")),
+        help="Set aside flagged pairs that may both be true: same quantity in other units, "
+             "'I didn't see', reported speech, different moments, different people.")
     st.markdown("**Text layer (pasted accounts only)**")
     abbrev = st.checkbox("Abbreviation-aware sentence splitter",
                          value=cfg["data"].get("sentence_splitter") == "abbrev",
@@ -150,6 +154,14 @@ if st.button("Detect disagreement", type="primary", disabled=len(claims) < 2):
                 a, b = e["example"]["side_a"], e["example"]["side_b"]
                 st.markdown(f"    - {a['account_id']}: \"{a['text']}\"\n"
                             f"    - {b['account_id']}: \"{b['text']}\"")
+    if findings.get("set_aside"):
+        with st.expander(f"Flagged by the model but set aside ({len(findings['set_aside'])})"):
+            st.caption("The NLI model scored these as contradicting, but a check found a reason they "
+                       "may both be true. They are not counted as conflicts.")
+            for e in findings["set_aside"][:30]:
+                a, b = e["claim_a"], e["claim_b"]
+                st.markdown(f"- {a['account_id']}: \"{a['text']}\" / {b['account_id']}: \"{b['text']}\"  \n"
+                            f"  model {e['p_contradiction']:.2f}; *{e['reason']}*")
     with st.expander("What this summary cannot tell you"):
         for caveat in findings["caveats"]:
             st.markdown(f"- {caveat}")

@@ -64,6 +64,14 @@ disagreement:
   cross_account_only: true         # never compare an account with itself
   top_pairs_in_report: 10
 
+checks:                            # post-NLI checks (pipeline/pair_checks.py): set aside flagged
+  enabled: true                    # pairs that match a known non-contradiction pattern
+  same_quantity: true              # "about 30 mph" / "about 50 km/h"; "about 20" / "around 25 people"
+  non_observation: true            # "I didn't see a gun" against "he had a gun"
+  reported_speech: true            # "the driver told me he had stopped" against "he did not stop"
+  different_time: true             # "alive when I got there" / "dead when the ambulance arrived"
+  different_referent: true         # "the cyclist" / "the pedestrian"; each witness's own "my car"
+
 findings:                          # the "what accounts agree on / conflict on" summary
   entailment_threshold: 0.8        # another account "restates" a claim at or above this
 
