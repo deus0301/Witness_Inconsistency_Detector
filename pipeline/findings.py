@@ -108,12 +108,18 @@ def build_findings(claims: Sequence[Claim], labels: np.ndarray, clusters: list[d
 
     single = [_view(claims[i]) for i in range(len(claims)) if i not in contested and i not in covered]
 
+    # pairs the model flagged but a post-NLI check set aside (pipeline/pair_checks.py)
+    set_aside = sorted((dict(p, topic=topic[c["cluster_id"]]) for c in clusters for p in c.get("set_aside_pairs", [])),
+                       key=lambda p: -p["p_contradiction"])
+
     corroborated.sort(key=lambda e: -e["n_accounts_stating"])
     disputed.sort(key=lambda e: -e["disagreement_score"])
     return {
         "counts": {"corroborated": len(corroborated), "disputed": len(disputed),
-                   "single_source": len(single), "contested_claims": len(contested)},
+                   "single_source": len(single), "contested_claims": len(contested),
+                   "set_aside": len(set_aside)},
         "corroborated": corroborated, "disputed": disputed, "single_source": single,
+        "set_aside": set_aside,
         "caveats": CAVEATS,
         "settings": {"entailment_threshold": ent_thr, "contradiction_threshold": con_thr},
     }
@@ -157,6 +163,17 @@ def render_findings_markdown(findings: dict[str, Any], max_items: int = 15) -> l
             lines.append(f"  - {b['account_id']}: \"{b['text']}\"")
     if len(findings["disputed"]) > max_items:
         lines.append(f"- _{len(findings['disputed']) - max_items} more below and in the JSON report._")
+    set_aside = findings.get("set_aside", [])
+    if set_aside:
+        lines += ["", "### Flagged by the model but set aside", "",
+                  "The NLI model scored these pairs as contradicting, but a check found a reason "
+                  "they may both be true. They are not counted as conflicts; read them if you disagree.", ""]
+        for e in set_aside[:max_items]:
+            a, b = e["claim_a"], e["claim_b"]
+            lines.append(f"- {a['account_id']}: \"{a['text']}\" / {b['account_id']}: \"{b['text']}\" "
+                         f"(model {e['p_contradiction']:.2f}; set aside: {e['reason']})")
+        if len(set_aside) > max_items:
+            lines.append(f"- _{len(set_aside) - max_items} more in the JSON report._")
     lines += ["", "### Said by one account only (not confirmed, not contradicted)", ""]
     if not findings["single_source"]:
         lines.append("_None._")

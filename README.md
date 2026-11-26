@@ -7,7 +7,10 @@ finds where the accounts disagree. It:
 2. groups claims about the same sub-event, without supervision (sentence embeddings + clustering);
 3. scores claim pairs from **different** accounts inside each group with a natural language
    inference (NLI) model;
-4. reports the groups where accounts contradict each other, quoting the conflicting statements
+4. sets aside flagged pairs that match a known non-contradiction pattern (the same quantity in
+   other units, "I didn't see", reported speech, different moments, different people), keeping
+   them visible with the reason;
+5. reports the groups where accounts contradict each other, quoting the conflicting statements
    and who made them.
 
 It does **not** decide which account is correct, assign fault, or write a merged narrative, and
@@ -20,7 +23,8 @@ flowchart LR
     B --> C["clustering/: sentence embeddings + clustering"]
     C --> D["pipeline/: cross-account pairs inside each cluster"]
     D --> E["nli_scoring/: NLI in both directions, cached"]
-    E --> F["pipeline/: disagreement score per cluster"]
+    E --> X["pipeline/: post-NLI checks set aside known false alarms"]
+    X --> F["pipeline/: disagreement score per cluster"]
     F --> G[JSON + Markdown report]
     F --> H["app/: Streamlit demo"]
 ```
@@ -132,6 +136,7 @@ cached in `outputs/cache/` afterwards.
 | Tables of every result | `python -m evaluation.make_tables` |
 | Confidence intervals, pair baselines, per-pair predictions | `python -m evaluation.validity` |
 | Witness-style probe checks | `python -m evaluation.witness_probes --tag <name>` (add `--suite extended`, `--finetuned`, or `--set nli.ground_speaker=false`) |
+| Effect of the post-NLI checks on the labelled pairs (after `evaluation.validity`) | `python -m evaluation.checks_eval` |
 | Fine-tune the NLI model, leave one event out (about 10 min per event on GPU) | `python -m training.finetune_nli` |
 | Fine-tune the all-events model used by the demo (after the folds) | `python -m training.finetune_nli --skip-folds --all-events` |
 | One PHEME event | `python -m pipeline.run --event germanwings-crash --rumours-only` |
@@ -170,9 +175,13 @@ overrides it for `--sample`). The settings you are most likely to change:
 | `data.sentence_splitter` | `abbrev` | Do not split sentences after "Dr.", "St.", "approx." and similar (`simple` splits after every full stop) |
 | `data.max_claim_words` | `40` | Longer sentences are split into clauses so a pair fits the NLI model's 128-token window |
 | `nli.ground_speaker` | `true` | Before NLI, "I", "my", "we" become the account's name, so two witnesses' "I" are not read as one person; a leading "I heard / I saw" is dropped |
+| `checks.enabled` | `true` | Post-NLI checks: set aside flagged pairs that may both be true. Each check can be switched off on its own: `checks.same_quantity`, `checks.non_observation`, `checks.reported_speech`, `checks.different_time`, `checks.different_referent` |
 | `finetune.use_finetuned` | `false` | Use the fine-tuned NLI model instead of the base model |
 
-The last three apply to pasted accounts only, not to PHEME tweets.
+`data.sentence_splitter`, `data.max_claim_words` and `nli.ground_speaker` apply to pasted
+accounts only, not to PHEME tweets. The post-NLI checks apply to both. A pair set aside by a
+check is not counted as a conflict but is listed in the report ("Flagged by the model but set
+aside") with its NLI score and the reason, so a reader can disagree with the check.
 
 ## 7. Repository layout
 
@@ -187,7 +196,7 @@ The last three apply to pasted accounts only, not to PHEME tweets.
 ├── examples/      sample witness accounts
 ├── nli_scoring/   NLI scorer (real and mock) with an on-disk cache
 ├── notebooks/     exploratory data analysis
-├── pipeline/      config, speaker grounding, disagreement score, findings summary, end-to-end run, report
+├── pipeline/      config, speaker grounding, post-NLI checks, disagreement score, findings summary, end-to-end run, report
 ├── tests/         unit tests (mock models, no network)
 ├── training/      NLI fine-tuning on PHEME RTE (leave one event out)
 ├── convert_veracity_annotations.py   PHEME's own annotation helper (reference copy)
@@ -199,9 +208,13 @@ The last three apply to pasted accounts only, not to PHEME tweets.
 
 - English only. Claims are compared only inside a cluster, so a conflict between two claims put in
   different clusters is never seen, and one account is never checked against itself.
-- Time is not modelled: an update ("alive when I got there" / "dead when the ambulance arrived")
-  looks like a dispute.
-- The NLI model still flags some compatible statements: different units for the same quantity,
-  "I didn't see X" against "X happened", reported speech, and statements about different people.
+- The post-NLI checks are hand-written rules for common patterns. They catch only the phrasings
+  they were written for, and they can set aside a real conflict that happens to match (for
+  example a reported statement that contradicts another source).
+- The NLI model still flags some compatible statements the checks do not cover, such as two
+  different actions by the same person ("stayed at the scene" / "got out and called an
+  ambulance").
+- Time is only handled when both statements name their moment ("when ...", "by the time ...");
+  otherwise an update looks like a dispute.
 - Scores are close to 0 or 1 for real and false conflicts alike, so the threshold changes less
   than you might expect.
